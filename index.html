@@ -12,6 +12,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var route = params.get("p");
+        if (!route) return;
+
+        params.delete("p");
+        var query = params.toString();
+        window.history.replaceState(
+          null,
+          "",
+          route + (query ? "?" + query : "") + window.location.hash,
+        );
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
