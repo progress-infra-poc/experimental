@@ -3,6 +3,11 @@
 An interactive front-end prototype for the Progress Chef 360 console, including
 node management, declarative state management, and reporting workflows.
 
+## Links
+
+- **Repository:** https://github.com/Jayamathans12/reporting-prototype
+- **Live prototype:** https://jayamathans12.github.io/reporting-prototype/
+
 ## Development
 
 ```sh
