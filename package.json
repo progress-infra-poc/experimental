@@ -16,11 +16,7 @@
     "minimatch@3": {
       "brace-expansion": "1.1.16"
     },
-    "@typescript-eslint/typescript-estree": {
-      "minimatch": {
-        "brace-expansion": "5.0.8"
-      }
-    },
+    "brace-expansion": "5.0.8",
     "scheduler": "0.27.0",
     "update-browserslist-db": "1.2.3",
     "electron-to-chromium": "1.5.398",
@@ -29,7 +25,9 @@
     "browserslist": "4.28.7",
     "enhanced-resolve": "5.24.4",
     "@tanstack/query-core": "5.101.4",
-    "rolldown": "1.2.1"
+    "rolldown": "1.2.1",
+    "@napi-rs/wasm-runtime": "1.2.3",
+    "@tybys/wasm-util": "0.9.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
