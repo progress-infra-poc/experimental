@@ -4,8 +4,9 @@ import { SplitButton } from "../TableToolbar";
 import { type CountFilter } from "./CountCards";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { ControlTable } from "./ControlTable";
+import { ScanResultsDrawer } from "./ScanResultsDrawer";
 import { ScanHistoryPanel } from "./ScanHistoryPanel";
-import type { ScanDetail, ScanHistoryItem } from "@/data/complianceDetail";
+import type { ControlDetail, ScanDetail, ScanHistoryItem } from "@/data/complianceDetail";
 
 function InfoCard({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
   return (
@@ -39,6 +40,7 @@ export function ComplianceScanDetailPanel({
   const [severity, setSeverity] = useState("all");
   
   const [activeTimestamp, setActiveTimestamp] = useState(history[0]?.timestamp ?? detail.timestamp);
+  const [selectedControl, setSelectedControl] = useState<ControlDetail | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -126,6 +128,7 @@ export function ComplianceScanDetailPanel({
       <div>
         <ControlTable
           controls={visible}
+          onScanResults={setSelectedControl}
           toolbar={
             <ResultsToolbar
               title="Controls"
@@ -169,6 +172,13 @@ export function ComplianceScanDetailPanel({
           onSelect={(item) => setActiveTimestamp(item.timestamp)}
         />
       </div>
+      <ScanResultsDrawer
+        open={selectedControl !== null}
+        onClose={() => setSelectedControl(null)}
+        title="Scan Results"
+        subtitle={selectedControl ? `${selectedControl.key}: ${selectedControl.title}` : ""}
+        controls={selectedControl ? [selectedControl] : []}
+      />
     </div>
   );
 }

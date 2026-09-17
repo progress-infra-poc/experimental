@@ -123,9 +123,11 @@ export function ControlResults({ control }: { control: ControlDetail }) {
 export function ControlTable({
   controls,
   toolbar,
+  onScanResults,
 }: {
   controls: ControlDetail[];
   toolbar?: React.ReactNode;
+  onScanResults?: (control: ControlDetail) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -197,7 +199,13 @@ export function ControlTable({
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => toggle(control.id)}
+                        onClick={() => {
+                          if (onScanResults) {
+                            onScanResults(control);
+                          } else {
+                            toggle(control.id);
+                          }
+                        }}
                         className="rounded-sm border border-chef-blue px-3 py-1.5 text-[12px] font-medium text-chef-blue hover:bg-chef-blue/10"
                       >
                         Scan Results
@@ -227,5 +235,4 @@ export function ControlTable({
     </div>
   );
 }
-
 

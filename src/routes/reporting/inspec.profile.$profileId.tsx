@@ -4,9 +4,9 @@ import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
 import { StatusPill } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
-import { type CountFilter } from "@/components/chef/reporting/CountCards";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
 import { ControlTable } from "@/components/chef/reporting/ControlTable";
+import { ScanResultsDrawer } from "@/components/chef/reporting/ScanResultsDrawer";
 import { getProfile, getProfileControls } from "@/data/complianceDetail";
 
 
@@ -38,25 +38,16 @@ export const Route = createFileRoute("/reporting/inspec/profile/$profileId")({
 
 function ProfileDetailsPage() {
   const { profile, controls } = Route.useLoaderData();
-  const [filter, setFilter] = useState<CountFilter>("all");
   const [query, setQuery] = useState("");
-
-  const counts = {
-    total: controls.length,
-    failed: controls.filter((c) => c.status === "Failed").length,
-    passed: controls.filter((c) => c.status === "Passed").length,
-    skipped: controls.filter((c) => c.status === "Skipped").length,
-    waived: controls.filter((c) => c.status === "Waived").length,
-  };
+  const [selectedControl, setSelectedControl] = useState<(typeof controls)[number] | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return controls.filter((control) => {
-      if (filter !== "all" && control.status !== filter) return false;
       if (!q) return true;
       return `${control.key} ${control.title}`.toLowerCase().includes(q);
     });
-  }, [controls, filter, query]);
+  }, [controls, query]);
 
   return (
     <ModuleLayout
@@ -96,6 +87,7 @@ function ProfileDetailsPage() {
       <div className="mt-6">
         <ControlTable
           controls={visible}
+          onScanResults={setSelectedControl}
           toolbar={
             <ResultsToolbar
               title="Controls"
@@ -103,20 +95,18 @@ function ProfileDetailsPage() {
               query={query}
               onQueryChange={setQuery}
               searchLabel="Search controls"
-              activeFilter={filter}
-              onFilterChange={(key) => setFilter(key as CountFilter)}
-              filterOptions={[
-                { key: "all", label: "Total Controls", count: counts.total },
-                { key: "Failed", label: "Failed Controls", count: counts.failed },
-                { key: "Passed", label: "Passed Controls", count: counts.passed },
-                { key: "Skipped", label: "Skipped Controls", count: counts.skipped },
-                { key: "Waived", label: "Waived Controls", count: counts.waived },
-              ]}
             />
           }
         />
       </div>
 
+      <ScanResultsDrawer
+        open={selectedControl !== null}
+        onClose={() => setSelectedControl(null)}
+        title="Scan Results"
+        subtitle={selectedControl ? `${selectedControl.key}: ${selectedControl.title}` : ""}
+        controls={selectedControl ? [selectedControl] : []}
+      />
     </ModuleLayout>
   );
 }

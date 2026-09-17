@@ -203,7 +203,7 @@ function EventsTab({ events, nodeId }: { events: NodeEvent[]; nodeId: string }) 
       <table className="w-full border-collapse text-left">
         <thead>
           <tr className="bg-chef-tablehead">
-            {["Type", "Event Name", "Status", "Last Run/scan/Job Instance", "Owner"].map((col) => (
+            {["Type", "Event Name", "Status", "Last Run/scan/Job Instance"].map((col) => (
               <th key={col} className="px-4 py-2.5 text-[13px] font-semibold text-chef-text">
                 {col}
               </th>
@@ -213,7 +213,7 @@ function EventsTab({ events, nodeId }: { events: NodeEvent[]; nodeId: string }) 
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-4 py-6 text-center text-[13px] text-chef-text-muted">
+              <td colSpan={4} className="px-4 py-6 text-center text-[13px] text-chef-text-muted">
                 No events found for this node.
               </td>
             </tr>
@@ -260,7 +260,6 @@ function EventsTab({ events, nodeId }: { events: NodeEvent[]; nodeId: string }) 
                   <StatusPill status={event.status} />
                 </td>
                 <td className="px-4 py-3 text-[13px] text-chef-text">{event.when}</td>
-                <td className="px-4 py-3 text-[13px] text-chef-text">{event.owner}</td>
               </tr>
               );
             })

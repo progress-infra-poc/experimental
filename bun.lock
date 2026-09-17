@@ -35,8 +35,6 @@
         "@tailwindcss/vite": "^4.2.1",
         "@tanstack/react-query": "^5.101.1",
         "@tanstack/react-router": "1.170.18",
-        "@tanstack/react-start": "1.168.32",
-        "@tanstack/router-plugin": "1.168.23",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
@@ -70,7 +68,6 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
         "globals": "^15.15.0",
-        "nitro": "3.0.260603-beta",
         "prettier": "^3.7.3",
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.56.1",
@@ -79,7 +76,23 @@
     },
   },
   "overrides": {
+    "@tanstack/query-core": "5.101.4",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": {
+        "brace-expansion": "5.0.8",
+      },
+    },
+    "ansis": "4.3.1",
+    "baseline-browser-mapping": "2.10.44",
+    "browserslist": "4.28.7",
+    "electron-to-chromium": "1.5.398",
+    "minimatch@3": {
+      "brace-expansion": "1.1.16",
+    },
+    "nanoid": "3.3.16",
     "rolldown": "1.2.1",
+    "scheduler": "0.27.0",
+    "update-browserslist-db": "1.2.3",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],

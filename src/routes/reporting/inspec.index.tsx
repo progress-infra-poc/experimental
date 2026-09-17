@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
+import { CalendarDays } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
-import { StatusPill } from "@/components/chef/StatusPill";
+import { StatusIcon, StatusPill } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
 import { SeverityLabel, type CountFilter } from "@/components/chef/reporting/CountCards";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
 import { ScanResultsDrawer, type DrawerItem } from "@/components/chef/reporting/ScanResultsDrawer";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { useTableControls } from "@/hooks/useTableControls";
 import { complianceScans } from "@/data/reporting";
 import {
@@ -39,12 +43,6 @@ export const Route = createFileRoute("/reporting/inspec/")({
   }),
   component: InspecReportingPage,
 });
-
-const TIME_RANGES = [
-  { id: "24h", label: "Last 24 hours" },
-  { id: "7d", label: "Last 7 days" },
-  { id: "30d", label: "Last 30 days" },
-];
 
 const NODE_COLUMNS = [
   { key: "node", label: "Node" },
@@ -154,7 +152,8 @@ function Pager({
 
 function InspecReportingPage() {
   const [tab, setTab] = useState("nodes");
-  const [range, setRange] = useState("7d");
+  const [range, setRange] = useState<"24h" | "date">("24h");
+  const [selectedDate, setSelectedDate] = useState<Date>();
   const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
 
   const nodeRows = useMemo(buildNodeRows, []);
@@ -175,18 +174,62 @@ function InspecReportingPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select
-            aria-label="Time range"
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            className="h-10 rounded-sm border border-chef-line bg-chef-surface px-2 text-[13px] text-chef-text outline-none"
-          >
-            {TIME_RANGES.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-sm border-chef-line bg-chef-surface px-3 text-[13px] font-normal text-chef-text"
+              >
+                <CalendarDays className="h-4 w-4" />
+                {selectedDate
+                  ? selectedDate.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "Last 24 hours"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-3">
+              <button
+                type="button"
+                className={`w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+                  range === "24h"
+                    ? "bg-chef-blue text-white"
+                    : "text-chef-text hover:bg-chef-canvas"
+                }`}
+                onClick={() => {
+                  setRange("24h");
+                  setSelectedDate(undefined);
+                }}
+              >
+                Last 24 hours
+              </button>
+              <button
+                type="button"
+                className={`mt-1 w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+                  range === "date"
+                    ? "bg-chef-blue text-white"
+                    : "text-chef-text hover:bg-chef-canvas"
+                }`}
+                onClick={() => setRange("date")}
+              >
+                Choose date
+              </button>
+              {range === "date" && (
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    setSelectedDate(date);
+                    if (date) setRange("date");
+                  }}
+                  initialFocus
+                />
+              )}
+            </PopoverContent>
+          </Popover>
           <SplitButton label="Export" />
         </div>
       </div>
@@ -456,33 +499,15 @@ function ProfilesTab({
   rows: ReturnType<typeof getProfileRows>;
   onOpenResults: OpenResults;
 }) {
-  const [filter, setFilter] = useState<CountFilter>("all");
   const navigate = useNavigate();
 
-  const filtered = useMemo(
-    () =>
-      rows.filter((row) => {
-        if (filter === "Failed") return row.failedControls > 0;
-        if (filter === "Passed") return row.failedControls === 0;
-        if (filter === "Skipped" || filter === "Waived") return false;
-        return true;
-      }),
-    [rows, filter],
-  );
+  const filtered = rows;
 
   const table = useTableControls({
     rows: filtered,
     searchFields: ["name", "version", "id", "rootProfile"],
   });
 
-
-  const counts = {
-    total: rows.length,
-    failed: rows.filter((r) => r.failedControls > 0).length,
-    passed: rows.filter((r) => r.failedControls === 0).length,
-    skipped: 0,
-    waived: 0,
-  };
 
   return (
     <div className="space-y-4">
@@ -494,13 +519,6 @@ function ProfilesTab({
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search profiles"
-            activeFilter={filter}
-            onFilterChange={(key) => setFilter(key as CountFilter)}
-            filterOptions={[
-              { key: "all", label: "Total Profiles", count: counts.total },
-              { key: "Failed", label: "Failed Profiles", count: counts.failed },
-              { key: "Passed", label: "Passed Profiles", count: counts.passed },
-            ]}
           />
         </div>
 
@@ -599,25 +617,21 @@ function ControlsTab({
   rows: ReturnType<typeof getControlRows>;
   onOpenResults: OpenResults;
 }) {
-  const [filter, setFilter] = useState<CountFilter>("all");
+  const [severity, setSeverity] = useState("all");
 
   const filtered = useMemo(
-    () => rows.filter((row) => (filter === "all" ? true : row.status === filter)),
-    [rows, filter],
+    () =>
+      rows.filter((row) => {
+        if (severity !== "all" && row.severity !== severity) return false;
+        return true;
+      }),
+    [rows, severity],
   );
 
   const table = useTableControls({
     rows: filtered,
     searchFields: ["key", "title", "profileName", "severity"],
   });
-
-  const counts = {
-    total: rows.length,
-    failed: rows.filter((r) => r.status === "Failed").length,
-    passed: rows.filter((r) => r.status === "Passed").length,
-    skipped: rows.filter((r) => r.status === "Skipped").length,
-    waived: rows.filter((r) => r.status === "Waived").length,
-  };
 
   return (
     <div className="space-y-4">
@@ -629,14 +643,19 @@ function ControlsTab({
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search controls"
-            activeFilter={filter}
-            onFilterChange={(key) => setFilter(key as CountFilter)}
-            filterOptions={[
-              { key: "all", label: "Total Controls", count: counts.total },
-              { key: "Failed", label: "Failed Controls", count: counts.failed },
-              { key: "Passed", label: "Passed Controls", count: counts.passed },
-              { key: "Skipped", label: "Skipped Controls", count: counts.skipped },
-              { key: "Waived", label: "Waived Controls", count: counts.waived },
+            filterGroups={[
+              {
+                id: "severity",
+                label: "Severity",
+                value: severity,
+                onChange: setSeverity,
+                options: [
+                  { key: "all", label: "All severities" },
+                  { key: "Critical", label: "Critical" },
+                  { key: "Major", label: "Major" },
+                  { key: "Minor", label: "Minor" },
+                ],
+              },
             ]}
           />
         </div>
@@ -649,7 +668,6 @@ function ControlsTab({
                   ["key", "Control"],
                   ["profileName", "Profile"],
                   ["severity", "Severity"],
-                  ["lastScan", "Last Scan"],
                 ].map(([key, label]) => (
                   <SortHeader
                     key={key}
@@ -684,23 +702,33 @@ function ControlsTab({
                   <td className="px-4 py-3 align-top">
                     <SeverityLabel severity={row.severity} impact={row.impact} />
                   </td>
-                  <td className="px-4 py-3 align-top text-[13px] text-chef-text-muted">{row.lastScan}</td>
                   <td className="px-4 py-3 align-top text-[13px] text-chef-text">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-chef-red">{row.nodeStatus.failed} failed</span>
-                      <span className="text-chef-text-muted">/</span>
-                      <span className="text-chef-green">{row.nodeStatus.passed} passed</span>
-                      <span className="text-chef-text-muted">/</span>
-                      <span className="text-chef-text-muted">{row.nodeStatus.skipped} skipped</span>
-                      <span className="text-chef-text-muted">/</span>
-                      <span className="text-chef-text-muted">{row.nodeStatus.waived} waived</span>
+                      {(
+                        [
+                          ["Failed", row.nodeStatus.failed],
+                          ["Passed", row.nodeStatus.passed],
+                          ["Skipped", row.nodeStatus.skipped],
+                          ["Waived", row.nodeStatus.waived],
+                        ] as const
+                      ).map(([status, count]) => (
+                        <span
+                          key={status}
+                          className="inline-flex items-center gap-1"
+                          title={`${count} ${status.toLowerCase()}`}
+                          aria-label={`${count} ${status.toLowerCase()}`}
+                        >
+                          <StatusIcon status={status} className="h-4 w-4" />
+                          <span className="text-chef-text-muted">{count}</span>
+                        </span>
+                      ))}
                     </span>
                   </td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                  <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
 
                     No controls match the current filters.
                   </td>
