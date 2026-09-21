@@ -202,21 +202,40 @@ function InspecReportingPage() {
       </div>
 
       <div className="mt-5">
-        <div className="mb-4 flex justify-end">
-          {tab === "controls" ? (
-            <ControlRangeFilter value={controlRangeHours} onChange={setControlRangeHours} />
-          ) : (
-            <ReportingDateFilter
-              range={range}
-              selectedDate={selectedDate}
-              onRangeChange={setRange}
-              onDateChange={setSelectedDate}
-            />
-          )}
-        </div>
-        {tab === "nodes" && <NodesTable rows={nodeRows} />}
-        {tab === "profiles" && <ProfilesTable rows={profileRows} />}
-        {tab === "controls" && <ControlAggregationSection rows={aggregations} />}
+        {tab === "nodes" && (
+          <NodesTable
+            rows={nodeRows}
+            dateFilter={
+              <ReportingDateFilter
+                range={range}
+                selectedDate={selectedDate}
+                onRangeChange={setRange}
+                onDateChange={setSelectedDate}
+              />
+            }
+          />
+        )}
+        {tab === "profiles" && (
+          <ProfilesTable
+            rows={profileRows}
+            dateFilter={
+              <ReportingDateFilter
+                range={range}
+                selectedDate={selectedDate}
+                onRangeChange={setRange}
+                onDateChange={setSelectedDate}
+              />
+            }
+          />
+        )}
+        {tab === "controls" && (
+          <ControlAggregationSection
+            rows={aggregations}
+            dateFilter={
+              <ControlRangeFilter value={controlRangeHours} onChange={setControlRangeHours} />
+            }
+          />
+        )}
       </div>
     </ModuleLayout>
   );
@@ -319,7 +338,13 @@ function ReportingDateFilter({
   );
 }
 
-function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
+function ProfilesTable({
+  rows,
+  dateFilter,
+}: {
+  rows: ReturnType<typeof getProfileRows>;
+  dateFilter: React.ReactNode;
+}) {
   const navigate = useNavigate();
   const table = useTableControls({
     rows,
@@ -336,6 +361,7 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search profiles"
+            filterContent={dateFilter}
           />
         </div>
         <div className="overflow-x-auto">
@@ -406,7 +432,7 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
   );
 }
 
-function NodesTable({ rows }: { rows: NodeRow[] }) {
+function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.ReactNode }) {
   const [filter, setFilter] = useState<CountFilter>("all");
   const [platform, setPlatform] = useState("all");
   const [environment, setEnvironment] = useState("all");
@@ -459,6 +485,7 @@ function NodesTable({ rows }: { rows: NodeRow[] }) {
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search nodes"
+            filterContent={dateFilter}
             activeFilter={filter}
             onFilterChange={(key) => setFilter(key as CountFilter)}
             filterOptions={[
@@ -599,7 +626,13 @@ function ControlResources({ control }: { control: ControlAggregation }) {
   );
 }
 
-function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
+function ControlAggregationSection({
+  rows,
+  dateFilter,
+}: {
+  rows: ControlAggregation[];
+  dateFilter: React.ReactNode;
+}) {
   const [outcome, setOutcome] = useState<"all" | AggregateControlStatus>("all");
   const filtered = useMemo(
     () =>
@@ -635,6 +668,7 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
           query={table.query}
           onQueryChange={table.search}
           searchLabel="Search controls"
+          filterContent={dateFilter}
           filterGroups={[
             {
               id: "outcome",

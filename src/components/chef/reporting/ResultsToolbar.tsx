@@ -27,6 +27,7 @@ export function ResultsToolbar({
   activeFilter,
   onFilterChange,
   filterGroups,
+  filterContent,
   columns,
   isColumnVisible,
   onToggleColumn,
@@ -40,6 +41,7 @@ export function ResultsToolbar({
   activeFilter?: string;
   onFilterChange?: (key: string) => void;
   filterGroups?: FilterGroup[];
+  filterContent?: React.ReactNode;
   columns?: ToolbarColumn[];
   isColumnVisible?: (key: string) => boolean;
   onToggleColumn?: (key: string) => void;
@@ -64,7 +66,7 @@ export function ResultsToolbar({
       : []),
     ...(filterGroups ?? []),
   ];
-  const hasFilters = groups.length > 0;
+  const hasFilters = groups.length > 0 || Boolean(filterContent);
 
   const iconClass = (active: boolean) =>
     `inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors ${
@@ -73,81 +75,94 @@ export function ResultsToolbar({
 
   return (
     <>
-    <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3">
-      <div className="flex items-baseline gap-3">
-        <h2 className="text-[16px] font-semibold text-chef-text">{title}</h2>
-        <span className="text-[13px] text-chef-text-muted">{resultLabel}</span>
-      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[16px] font-semibold text-chef-text">{title}</h2>
+          <span className="text-[13px] text-chef-text-muted">{resultLabel}</span>
+        </div>
 
-      <div className="flex items-center gap-1">
-        {openMenu === "search" || query ? (
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-chef-text-muted" />
-            <input
-              autoFocus
-              aria-label={searchLabel}
-              placeholder={searchLabel}
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              className="h-9 w-[220px] rounded-sm border border-chef-line bg-chef-surface pl-8 pr-8 text-[13px] text-chef-text outline-none focus:border-chef-blue"
-            />
-            {query && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => onQueryChange("")}
-                className="absolute right-2.5 top-2.5 text-chef-text-muted hover:text-chef-blue"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <button type="button" aria-label={searchLabel} onClick={() => toggle("search")} className={iconClass(false)}>
-            <Search className="h-[18px] w-[18px]" />
-          </button>
-        )}
-
-        {hasFilters && (
-          <button
-            type="button"
-            aria-label="Filter results"
-            onClick={() => toggle("filter")}
-            className={iconClass(openMenu === "filter" || groups.some((g) => g.value !== "all"))}
-          >
-            <Filter className="h-[18px] w-[18px]" />
-          </button>
-        )}
-
-        {columns && (
-          <div className="relative">
+        <div className="flex items-center gap-1">
+          {openMenu === "search" || query ? (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-chef-text-muted" />
+              <input
+                autoFocus
+                aria-label={searchLabel}
+                placeholder={searchLabel}
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                className="h-9 w-[220px] rounded-sm border border-chef-line bg-chef-surface pl-8 pr-8 text-[13px] text-chef-text outline-none focus:border-chef-blue"
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => onQueryChange("")}
+                  className="absolute right-2.5 top-2.5 text-chef-text-muted hover:text-chef-blue"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ) : (
             <button
               type="button"
-              aria-label="Customize columns"
-              onClick={() => toggle("columns")}
-              className={iconClass(openMenu === "columns")}
+              aria-label={searchLabel}
+              onClick={() => toggle("search")}
+              className={iconClass(false)}
             >
-              <Columns2 className="h-[18px] w-[18px]" />
+              <Search className="h-[18px] w-[18px]" />
             </button>
-            {openMenu === "columns" && (
-              <div className="absolute right-0 z-20 mt-1 w-[210px] rounded-sm border border-chef-line bg-chef-surface p-2 text-left shadow-lg">
-                {columns.map((col) => (
-                  <label key={col.key} className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-chef-text">
-                    <input
-                      type="checkbox"
-                      checked={isColumnVisible?.(col.key) ?? true}
-                      onChange={() => onToggleColumn?.(col.key)}
-                    />
-                    {col.label}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+
+          {hasFilters && (
+            <button
+              type="button"
+              aria-label="Filter results"
+              onClick={() => toggle("filter")}
+              className={iconClass(openMenu === "filter" || groups.some((g) => g.value !== "all"))}
+            >
+              <Filter className="h-[18px] w-[18px]" />
+            </button>
+          )}
+
+          {columns && (
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Customize columns"
+                onClick={() => toggle("columns")}
+                className={iconClass(openMenu === "columns")}
+              >
+                <Columns2 className="h-[18px] w-[18px]" />
+              </button>
+              {openMenu === "columns" && (
+                <div className="absolute right-0 z-20 mt-1 w-[210px] rounded-sm border border-chef-line bg-chef-surface p-2 text-left shadow-lg">
+                  {columns.map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-chef-text"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isColumnVisible?.(col.key) ?? true}
+                        onChange={() => onToggleColumn?.(col.key)}
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-    {openMenu === "filter" && hasFilters && <FilterChipBar groups={groups} />}
+      {openMenu === "filter" && hasFilters && (
+        <div className="space-y-2">
+          {filterContent}
+          {groups.length > 0 && <FilterChipBar groups={groups} />}
+        </div>
+      )}
     </>
   );
 }
