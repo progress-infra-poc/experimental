@@ -156,6 +156,7 @@ function InspecReportingPage() {
   const [tab, setTab] = useState("nodes");
   const [range, setRange] = useState<"24h" | "date">("24h");
   const [selectedDate, setSelectedDate] = useState<Date>();
+  const [controlRangeHours, setControlRangeHours] = useState(24);
   const nodeRows = useMemo(
     () => buildNodeRows(24, range === "date" ? selectedDate : undefined),
     [range, selectedDate],
@@ -165,8 +166,8 @@ function InspecReportingPage() {
     [range, selectedDate],
   );
   const aggregations = useMemo(
-    () => getLatestControlAggregations(24, range === "date" ? selectedDate : undefined),
-    [range, selectedDate],
+    () => getLatestControlAggregations(controlRangeHours),
+    [controlRangeHours],
   );
 
   return (
@@ -202,18 +203,52 @@ function InspecReportingPage() {
 
       <div className="mt-5">
         <div className="mb-4 flex justify-end">
-          <ReportingDateFilter
-            range={range}
-            selectedDate={selectedDate}
-            onRangeChange={setRange}
-            onDateChange={setSelectedDate}
-          />
+          {tab === "controls" ? (
+            <ControlRangeFilter value={controlRangeHours} onChange={setControlRangeHours} />
+          ) : (
+            <ReportingDateFilter
+              range={range}
+              selectedDate={selectedDate}
+              onRangeChange={setRange}
+              onDateChange={setSelectedDate}
+            />
+          )}
         </div>
         {tab === "nodes" && <NodesTable rows={nodeRows} />}
         {tab === "profiles" && <ProfilesTable rows={profileRows} />}
         {tab === "controls" && <ControlAggregationSection rows={aggregations} />}
       </div>
     </ModuleLayout>
+  );
+}
+
+const CONTROL_RANGES = [
+  { label: "Last 1 day", hours: 24 },
+  { label: "Last 7 days", hours: 24 * 7 },
+  { label: "Last 30 days", hours: 24 * 30 },
+  { label: "Last 3 months", hours: 24 * 90 },
+];
+
+function ControlRangeFilter({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (hours: number) => void;
+}) {
+  return (
+    <select
+      aria-label="Controls reporting window"
+      value={value}
+      onChange={(event) => onChange(Number(event.target.value))}
+      className="h-10 rounded-sm border border-chef-line bg-chef-surface px-3 text-[13px] text-chef-text outline-none focus:border-chef-blue"
+    >
+      {CONTROL_RANGES.map((range) => (
+        <option key={range.hours} value={range.hours}>
+          {range.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -644,7 +679,9 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 sortDirection={table.sortDirection}
                 onSort={table.toggleSort}
               />
-              <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Resources</th>
+              <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">
+                Node Aggregation Overview for Controls
+              </th>
             </tr>
           </thead>
           <tbody>
