@@ -8,12 +8,12 @@ import { getScanDetail, getScanHistory } from "@/data/complianceDetail";
 const DEFAULT_CRUMBS = [
   { label: "Reporting", to: "/reporting" },
   { label: "InSpec Reporting", to: "/reporting/inspec" },
-  { label: "Compliance Scan Details" },
+  { label: "Node Compliance" },
 ];
 
 export const Route = createFileRoute("/reporting/inspec/$scanId")({
   validateSearch: (search: Record<string, unknown>): { node?: string } =>
-    typeof search['node'] === "string" ? { node: search['node'] as string } : {},
+    typeof search["node"] === "string" ? { node: search["node"] as string } : {},
   loader: ({ params }) => {
     const detail = getScanDetail(params.scanId);
     if (!detail) throw notFound();
@@ -26,8 +26,8 @@ export const Route = createFileRoute("/reporting/inspec/$scanId")({
       };
     }
     const { scan } = loaderData.detail;
-    const title = `Compliance Scan Details ${scan.node} — Reporting`;
-    const description = `Control-level InSpec results for ${scan.node} on ${scan.platform}.`;
+    const title = `${scan.node} — Node Compliance — Reporting`;
+    const description = `Execution history, profiles, and control results for ${scan.node} on ${scan.platform}.`;
     return {
       meta: [
         { title },
@@ -52,16 +52,12 @@ function ComplianceScanDetailsPage() {
         { label: "Node Management Reporting", to: "/reporting/node-management" },
         { label: node.hostname, to: `/reporting/node-management/${node.id}` },
         { label: "All Operations/Jobs", to: `/reporting/node-management/${node.id}` },
-        { label: "Compliance Scan Details" },
+        { label: "Node Compliance" },
       ]
     : DEFAULT_CRUMBS;
 
   return (
-    <ModuleLayout
-      moduleTitle="Reporting"
-      railItems={reportingRailItems}
-      crumbs={crumbs}
-    >
+    <ModuleLayout moduleTitle="Reporting" railItems={reportingRailItems} crumbs={crumbs}>
       <ComplianceScanDetailPanel key={detail.scan.id} detail={detail} history={history} />
     </ModuleLayout>
   );

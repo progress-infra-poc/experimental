@@ -129,6 +129,21 @@ export interface ScanDetail {
   counts: { total: number; failed: number; passed: number; skipped: number; waived: number };
 }
 
+export type AggregateControlStatus = "Passed" | "Failed" | "Skipped" | "Error" | "Other";
+
+export interface ControlAggregation {
+  id: string;
+  key: string;
+  title: string;
+  profileId: string;
+  profileName: string;
+  profileVersion: string;
+  severity: ControlDetail["severity"];
+  impact: number;
+  nodeCount: number;
+  counts: Record<Lowercase<AggregateControlStatus>, number>;
+}
+
 /* -------------------------------- helpers -------------------------------- */
 
 const NOW = Math.max(...reports.map((r) => r.endTime)) + 12 * 60;
@@ -159,7 +174,8 @@ function severityFor(impact: number): ControlDetail["severity"] {
 function statusOf(control: RawControl): ControlStatus {
   if (control.waived) return "Waived";
   if (control.results.some((r) => r.status === "failed")) return "Failed";
-  if (control.results.length > 0 && control.results.every((r) => r.status === "skipped")) return "Skipped";
+  if (control.results.length > 0 && control.results.every((r) => r.status === "skipped"))
+    return "Skipped";
   if (control.results.length === 0) return "Skipped";
   return "Passed";
 }
@@ -258,17 +274,20 @@ export function getScanDetail(scanId: string): ScanDetail | undefined {
   return scanDetails.get(scanId);
 }
 
-/** Latest scan per node, most recent first. */
-export const complianceScans: ComplianceScan[] = (() => {
+/** Latest scan per node in the selected reporting window, most recent first. */
+export function getLatestComplianceScans(rangeHours = Number.POSITIVE_INFINITY): ComplianceScan[] {
   const latest = new Map<string, RawReport>();
   for (const report of reports) {
+    if ((NOW - report.endTime) / 3600 > rangeHours) continue;
     const current = latest.get(report.nodeName);
     if (!current || report.endTime > current.endTime) latest.set(report.nodeName, report);
   }
   return Array.from(latest.values())
     .sort((a, b) => b.endTime - a.endTime)
     .map((r) => scanDetails.get(r.id)!.scan);
-})();
+}
+
+export const complianceScans: ComplianceScan[] = getLatestComplianceScans();
 
 export function getComplianceScan(scanId: string): ComplianceScan | undefined {
   return scanDetails.get(scanId)?.scan;
@@ -287,6 +306,69 @@ export function getScanHistory(scanId: string): ScanHistoryItem[] {
       status: r.status === "passed" ? ("Passed" as const) : ("Failed" as const),
       hoursAgo: Math.max(0, (NOW - r.endTime) / 3600),
     }));
+}
+
+function aggregateStatusOf(control: RawControl): AggregateControlStatus {
+  if (control.waived) return "Other";
+  const statuses = control.results.map((result) => result.status.toLowerCase());
+  if (statuses.some((status) => status === "error")) return "Error";
+  if (statuses.some((status) => status === "failed")) return "Failed";
+  if (statuses.length === 0 || statuses.every((status) => status === "skipped")) return "Skipped";
+  if (statuses.every((status) => status === "passed")) return "Passed";
+  return "Other";
+}
+
+/**
+ * Aggregates each control once per node using only that node's latest execution.
+ * This keeps the calculation linear in the size of the latest-state dataset.
+ */
+export function getLatestControlAggregations(
+  rangeHours = Number.POSITIVE_INFINITY,
+): ControlAggregation[] {
+  const latestByNode = new Map<string, RawReport>();
+  for (const report of reports) {
+    if ((NOW - report.endTime) / 3600 > rangeHours) continue;
+    const current = latestByNode.get(report.nodeId);
+    if (!current || report.endTime > current.endTime) latestByNode.set(report.nodeId, report);
+  }
+
+  const aggregations = new Map<string, ControlAggregation>();
+  for (const report of latestByNode.values()) {
+    const seenInExecution = new Set<string>();
+    for (const profile of report.profiles) {
+      const profileId = profileSlug(profile);
+      for (const control of profile.controls) {
+        const id = `${profileId}--${control.id}`;
+        if (seenInExecution.has(id)) continue;
+        seenInExecution.add(id);
+
+        const existing = aggregations.get(id) ?? {
+          id,
+          key: control.id,
+          title: control.title,
+          profileId,
+          profileName: profile.title || profile.name,
+          profileVersion: profile.version,
+          severity: severityFor(control.impact),
+          impact: control.impact,
+          nodeCount: 0,
+          counts: { passed: 0, failed: 0, skipped: 0, error: 0, other: 0 },
+        };
+        const status = aggregateStatusOf(
+          control,
+        ).toLowerCase() as Lowercase<AggregateControlStatus>;
+        existing.counts[status] += 1;
+        existing.nodeCount += 1;
+        aggregations.set(id, existing);
+      }
+    }
+  }
+
+  return Array.from(aggregations.values()).sort(
+    (a, b) =>
+      a.profileName.localeCompare(b.profileName) ||
+      a.key.localeCompare(b.key, undefined, { numeric: true }),
+  );
 }
 
 /* ------------------------- list-level aggregates ------------------------- */

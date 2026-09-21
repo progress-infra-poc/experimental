@@ -1,41 +1,38 @@
 import { useMemo, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { ChevronRight, ShieldCheck } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
-import { StatusIcon, StatusPill } from "@/components/chef/StatusPill";
+import { StatusPill } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
 import { SeverityLabel, type CountFilter } from "@/components/chef/reporting/CountCards";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
-import { ScanResultsDrawer, type DrawerItem } from "@/components/chef/reporting/ScanResultsDrawer";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 import { useTableControls } from "@/hooks/useTableControls";
-import { complianceScans } from "@/data/reporting";
 import {
-  getControlRows,
+  getLatestComplianceScans,
+  getLatestControlAggregations,
   getProfileRows,
   getScanDetail,
-  getProfileNodes,
-  getProfileControlsForScan,
-  type ControlDetail,
+  type AggregateControlStatus,
+  type ControlAggregation,
 } from "@/data/complianceDetail";
 
 export const Route = createFileRoute("/reporting/inspec/")({
   head: () => ({
     meta: [
-      { title: "Compliance Scan — InSpec Reporting — Progress Chef 360" },
+      { title: "Node Compliance — InSpec Reporting — Progress Chef 360" },
       {
         name: "description",
-        content: "InSpec compliance results across nodes, profiles and controls with filters and drill-down.",
+        content:
+          "Latest compliance state by node with execution history, profiles, controls, and aggregate outcomes.",
       },
-      { property: "og:title", content: "Compliance Scan — InSpec Reporting — Progress Chef 360" },
+      { property: "og:title", content: "Node Compliance — InSpec Reporting — Progress Chef 360" },
       {
         property: "og:description",
-        content: "Review InSpec scan results by node, profile or control and drill into failing tests.",
+        content:
+          "Investigate node compliance from execution history through profile and control results.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -46,11 +43,18 @@ export const Route = createFileRoute("/reporting/inspec/")({
 
 const NODE_COLUMNS = [
   { key: "node", label: "Node" },
-  { key: "status", label: "Status" },
-  { key: "lastScan", label: "Last Scan" },
+  { key: "status", label: "Latest Status" },
+  { key: "lastScan", label: "Latest Execution" },
   { key: "platform", label: "Platform" },
   { key: "environment", label: "Environment" },
+  { key: "profiles", label: "Profiles" },
   { key: "controlFailures", label: "Control Failures" },
+];
+
+const WINDOWS = [
+  { label: "Last 24 hours", hours: 24 },
+  { label: "Last 7 days", hours: 24 * 7 },
+  { label: "Last 30 days", hours: 24 * 30 },
 ];
 
 interface NodeRow {
@@ -60,6 +64,7 @@ interface NodeRow {
   node: string;
   platform: string;
   environment: string;
+  profiles: number;
   controlFailures: string;
   failed: number;
   passed: number;
@@ -67,8 +72,8 @@ interface NodeRow {
   waived: number;
 }
 
-function buildNodeRows(): NodeRow[] {
-  return complianceScans.map((scan) => {
+function buildNodeRows(rangeHours: number): NodeRow[] {
+  return getLatestComplianceScans(rangeHours).map((scan) => {
     const detail = getScanDetail(scan.id);
     const counts = detail?.counts ?? { total: 0, failed: 0, passed: 0, skipped: 0, waived: 0 };
     return {
@@ -78,7 +83,8 @@ function buildNodeRows(): NodeRow[] {
       node: scan.node,
       platform: scan.platform,
       environment: scan.environment,
-      controlFailures: counts.failed > 0 ? `${counts.failed} Failed` : "Passed",
+      profiles: detail?.profiles.length ?? 0,
+      controlFailures: counts.failed > 0 ? `${counts.failed} Failed` : "None",
       failed: counts.failed,
       passed: counts.passed,
       skipped: counts.skipped,
@@ -102,9 +108,9 @@ function Pager({
   total: number;
   page: number;
   pageCount: number;
-  setPage: (n: number) => void;
+  setPage: (page: number) => void;
   pageSize: number;
-  setPageSize: (n: number) => void;
+  setPageSize: (size: number) => void;
 }) {
   return (
     <div className="mt-4 flex items-center justify-end gap-4 text-[13px] text-chef-text">
@@ -137,12 +143,12 @@ function Pager({
       <select
         aria-label="Items per page"
         value={pageSize}
-        onChange={(e) => setPageSize(Number(e.target.value))}
+        onChange={(event) => setPageSize(Number(event.target.value))}
         className="h-9 rounded-sm border border-chef-line bg-chef-surface px-2 text-[13px] text-chef-text outline-none"
       >
-        {[10, 25, 50].map((n) => (
-          <option key={n} value={n}>
-            {n} items per page
+        {[10, 25, 50].map((size) => (
+          <option key={size} value={size}>
+            {size} items per page
           </option>
         ))}
       </select>
@@ -152,13 +158,10 @@ function Pager({
 
 function InspecReportingPage() {
   const [tab, setTab] = useState("nodes");
-  const [range, setRange] = useState<"24h" | "date">("24h");
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
-
-  const nodeRows = useMemo(buildNodeRows, []);
+  const [rangeHours, setRangeHours] = useState(WINDOWS[0]!.hours);
+  const nodeRows = useMemo(() => buildNodeRows(rangeHours), [rangeHours]);
   const profileRows = useMemo(getProfileRows, []);
-  const controlRows = useMemo(getControlRows, []);
+  const aggregations = useMemo(() => getLatestControlAggregations(rangeHours), [rangeHours]);
 
   return (
     <ModuleLayout
@@ -166,80 +169,51 @@ function InspecReportingPage() {
       railItems={reportingRailItems}
       crumbs={[{ label: "Reporting", to: "/reporting" }, { label: "InSpec Reporting" }]}
     >
-      <div className="flex items-start justify-between gap-8">
+      <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <h1 className="text-[28px] font-semibold text-chef-text">Compliance Scan</h1>
-          <p className="mt-1.5 text-[13px] text-chef-text-muted">
-            InSpec compliance results across nodes, profiles and controls.
+          <h1 className="text-[28px] font-semibold text-chef-text">Node Compliance</h1>
+          <p className="mt-1.5 max-w-[720px] text-[13px] text-chef-text-muted">
+            Latest known compliance state for every reporting node. Open a node to investigate its
+            execution history, profiles, controls, and outcomes.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 rounded-sm border-chef-line bg-chef-surface px-3 text-[13px] font-normal text-chef-text"
-              >
-                <CalendarDays className="h-4 w-4" />
-                {selectedDate
-                  ? selectedDate.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : "Last 24 hours"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto p-3">
-              <button
-                type="button"
-                className={`w-full rounded-sm px-3 py-2 text-left text-[13px] ${
-                  range === "24h"
-                    ? "bg-chef-blue text-white"
-                    : "text-chef-text hover:bg-chef-canvas"
-                }`}
-                onClick={() => {
-                  setRange("24h");
-                  setSelectedDate(undefined);
-                }}
-              >
-                Last 24 hours
-              </button>
-              <button
-                type="button"
-                className={`mt-1 w-full rounded-sm px-3 py-2 text-left text-[13px] ${
-                  range === "date"
-                    ? "bg-chef-blue text-white"
-                    : "text-chef-text hover:bg-chef-canvas"
-                }`}
-                onClick={() => setRange("date")}
-              >
-                Choose date
-              </button>
-              {range === "date" && (
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => {
-                    setSelectedDate(date);
-                    if (date) setRange("date");
-                  }}
-                  initialFocus
-                />
-              )}
-            </PopoverContent>
-          </Popover>
+          <select
+            aria-label="Reporting window"
+            value={rangeHours}
+            onChange={(event) => setRangeHours(Number(event.target.value))}
+            className="h-10 rounded-sm border border-chef-line bg-chef-surface px-3 text-[13px] text-chef-text outline-none focus:border-chef-blue"
+          >
+            {WINDOWS.map((window) => (
+              <option key={window.hours} value={window.hours}>
+                {window.label}
+              </option>
+            ))}
+          </select>
           <SplitButton label="Export" />
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6 rounded-sm border border-chef-line bg-chef-canvas/40 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-chef-text-muted">
+          <span className="font-medium text-chef-text">Node</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>Execution History</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>Execution</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>Profile</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>Controls</span>
+        </div>
+      </div>
+
+      <div className="mt-5">
         <TabStrip
           tabs={[
             { id: "nodes", label: "Nodes", count: nodeRows.length },
             { id: "profiles", label: "Profiles", count: profileRows.length },
-            { id: "controls", label: "Controls", count: controlRows.length },
+            { id: "controls", label: "Controls", count: aggregations.length },
           ]}
           active={tab}
           onChange={setTab}
@@ -247,45 +221,124 @@ function InspecReportingPage() {
       </div>
 
       <div className="mt-5">
-        {tab === "nodes" && <NodesTab rows={nodeRows} onOpenResults={setDrawer} />}
-        {tab === "profiles" && <ProfilesTab rows={profileRows} onOpenResults={setDrawer} />}
-        {tab === "controls" && <ControlsTab rows={controlRows} onOpenResults={setDrawer} />}
+        {tab === "nodes" && <NodesTable rows={nodeRows} />}
+        {tab === "profiles" && <ProfilesTable rows={profileRows} />}
+        {tab === "controls" && <ControlAggregationSection rows={aggregations} />}
       </div>
-
-      <ScanResultsDrawer
-        open={drawer !== null}
-        onClose={() => setDrawer(null)}
-        title={drawer?.title ?? ""}
-        subtitle={drawer?.subtitle ?? ""}
-        controls={drawer?.controls ?? []}
-        items={drawer?.items}
-        getControlsForItem={drawer?.getControlsForItem}
-      />
     </ModuleLayout>
   );
 }
 
-type DrawerPayload = {
-  title: string;
-  subtitle: string;
-  controls: ControlDetail[];
-  items?: DrawerItem[];
-  getControlsForItem?: (item: DrawerItem) => ControlDetail[];
-};
+function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
+  const navigate = useNavigate();
+  const table = useTableControls({
+    rows,
+    searchFields: ["name", "version", "id", "rootProfile"],
+  });
 
-type OpenResults = (payload: DrawerPayload) => void;
+  return (
+    <div>
+      <div className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface">
+        <div className="border-b border-chef-line px-3 pt-3">
+          <ResultsToolbar
+            title="Profiles"
+            resultLabel={`Showing ${table.rows.length} of ${rows.length} profiles`}
+            query={table.query}
+            onQueryChange={table.search}
+            searchLabel="Search profiles"
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-chef-line bg-chef-canvas">
+                {[
+                  ["name", "Profile"],
+                  ["version", "Version"],
+                  ["rootProfile", "Identifier"],
+                  ["nodeCount", "Reporting Nodes"],
+                  ["controlCount", "Controls"],
+                  ["failedControls", "Failed Controls"],
+                ].map(([key, label]) => (
+                  <SortHeader
+                    key={key}
+                    label={label!}
+                    columnKey={key!}
+                    sortKey={table.sortKey}
+                    sortDirection={table.sortDirection}
+                    onSort={table.toggleSort}
+                  />
+                ))}
+                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row) => (
+                <tr
+                  key={row.id}
+                  onClick={() =>
+                    navigate({
+                      to: "/reporting/inspec/profile/$profileId",
+                      params: { profileId: row.id },
+                    })
+                  }
+                  className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
+                >
+                  <td className="px-4 py-3 text-[13px] font-medium text-chef-blue">{row.name}</td>
+                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.version}</td>
+                  <td className="px-4 py-3 font-mono text-[12px] text-chef-text-muted">
+                    {row.rootProfile}
+                  </td>
+                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.nodeCount}</td>
+                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlCount}</td>
+                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.failedControls}</td>
+                  <td className="px-4 py-3 text-[13px] text-chef-blue">View profile</td>
+                </tr>
+              ))}
+              {table.rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
+                  >
+                    No profiles match the current search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: OpenResults }) {
+      <Pager
+        rangeStart={table.rangeStart}
+        rangeEnd={table.rangeEnd}
+        total={table.total}
+        page={table.page}
+        pageCount={table.pageCount}
+        setPage={table.setPage}
+        pageSize={table.pageSize}
+        setPageSize={table.setPageSize}
+      />
+    </div>
+  );
+}
+
+function NodesTable({ rows }: { rows: NodeRow[] }) {
   const [filter, setFilter] = useState<CountFilter>("all");
   const [platform, setPlatform] = useState("all");
   const [environment, setEnvironment] = useState("all");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
-
-  const platforms = useMemo(() => Array.from(new Set(rows.map((r) => r.platform))).sort(), [rows]);
-  const environments = useMemo(() => Array.from(new Set(rows.map((r) => r.environment))).sort(), [rows]);
-
+  const platforms = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.platform))).sort(),
+    [rows],
+  );
+  const environments = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.environment))).sort(),
+    [rows],
+  );
   const filtered = useMemo(
     () =>
       rows.filter((row) => {
@@ -299,25 +352,15 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
       }),
     [rows, platform, environment, filter],
   );
-
   const table = useTableControls({
     rows: filtered,
     searchFields: ["node", "platform", "environment", "controlFailures"],
   });
-
-  const counts = {
-    total: rows.length,
-    failed: rows.filter((r) => r.failed > 0).length,
-    passed: rows.filter((r) => r.failed === 0).length,
-    skipped: rows.filter((r) => r.skipped > 0).length,
-    waived: rows.filter((r) => r.waived > 0).length,
-  };
-
   const show = (key: string) => !hidden.has(key);
 
   function toggleColumn(key: string) {
-    setHidden((prev) => {
-      const next = new Set(prev);
+    setHidden((previous) => {
+      const next = new Set(previous);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
@@ -325,11 +368,11 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       <div className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface">
         <div className="border-b border-chef-line px-3 pt-3">
           <ResultsToolbar
-            title="Scan Results"
+            title="Nodes"
             resultLabel={`Showing ${table.rows.length} of ${filtered.length} nodes`}
             query={table.query}
             onQueryChange={table.search}
@@ -337,11 +380,11 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
             activeFilter={filter}
             onFilterChange={(key) => setFilter(key as CountFilter)}
             filterOptions={[
-              { key: "all", label: "Total Nodes", count: counts.total },
-              { key: "Failed", label: "Failed Nodes", count: counts.failed },
-              { key: "Passed", label: "Passed Nodes", count: counts.passed },
-              { key: "Skipped", label: "Skipped Nodes", count: counts.skipped },
-              { key: "Waived", label: "Waived Nodes", count: counts.waived },
+              { key: "all", label: "All nodes" },
+              { key: "Failed", label: "Failed" },
+              { key: "Passed", label: "Passed" },
+              { key: "Skipped", label: "Contains skipped controls" },
+              { key: "Waived", label: "Contains other outcomes" },
             ]}
             filterGroups={[
               {
@@ -351,7 +394,7 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
                 onChange: setPlatform,
                 options: [
                   { key: "all", label: "All platforms" },
-                  ...platforms.map((p) => ({ key: p, label: p })),
+                  ...platforms.map((value) => ({ key: value, label: value })),
                 ],
               },
               {
@@ -361,7 +404,7 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
                 onChange: setEnvironment,
                 options: [
                   { key: "all", label: "All environments" },
-                  ...environments.map((e) => ({ key: e, label: e })),
+                  ...environments.map((value) => ({ key: value, label: value })),
                 ],
               },
             ]}
@@ -375,70 +418,63 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-chef-line bg-chef-canvas">
-                {NODE_COLUMNS.filter((c) => show(c.key)).map((col) => (
+                {NODE_COLUMNS.filter((column) => show(column.key)).map((column) => (
                   <SortHeader
-                    key={col.key}
-                    label={col.label}
-                    columnKey={col.key}
+                    key={column.key}
+                    label={column.label}
+                    columnKey={column.key}
                     sortKey={table.sortKey}
                     sortDirection={table.sortDirection}
                     onSort={table.toggleSort}
                   />
                 ))}
-                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Scan Results</th>
+                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">
+                  Investigation
+                </th>
               </tr>
             </thead>
             <tbody>
               {table.rows.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={() => navigate({ to: "/reporting/inspec/$scanId", params: { scanId: row.id } })}
+                  onClick={() =>
+                    navigate({ to: "/reporting/inspec/$scanId", params: { scanId: row.id } })
+                  }
                   className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
                 >
                   {show("node") && (
-                    <td className="px-4 py-3 text-[13px] text-chef-text hover:text-chef-blue">{row.node}</td>
+                    <td className="px-4 py-3 text-[13px] font-medium text-chef-blue">{row.node}</td>
                   )}
                   {show("status") && (
                     <td className="px-4 py-3">
                       <StatusPill status={row.status} />
                     </td>
                   )}
-                  {show("lastScan") && <td className="px-4 py-3 text-[13px] text-chef-text">{row.lastScan}</td>}
-                  {show("platform") && <td className="px-4 py-3 text-[13px] text-chef-text">{row.platform}</td>}
+                  {show("lastScan") && (
+                    <td className="px-4 py-3 text-[13px] text-chef-text">{row.lastScan}</td>
+                  )}
+                  {show("platform") && (
+                    <td className="px-4 py-3 text-[13px] text-chef-text">{row.platform}</td>
+                  )}
                   {show("environment") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.environment}</td>
+                  )}
+                  {show("profiles") && (
+                    <td className="px-4 py-3 text-[13px] text-chef-text">{row.profiles}</td>
                   )}
                   {show("controlFailures") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlFailures}</td>
                   )}
-                  <td className="px-4 py-3 text-[13px]" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onOpenResults({
-                          title: "Scan results for node:",
-                          subtitle: row.node,
-                          controls: [],
-                          items: (getScanDetail(row.id)?.profiles ?? []).map((p) => ({
-                            id: p.id,
-                            label: p.name,
-                            sublabel: `v${p.version}`,
-                            status: p.status === "Failed" ? ("Failed" as const) : ("Passed" as const),
-                          })),
-                          getControlsForItem: (item) => getProfileControlsForScan(item.id, row.id),
-                        })
-                      }
-                      className="text-chef-blue hover:underline"
-                    >
-                      View results
-                    </button>
-                  </td>
+                  <td className="px-4 py-3 text-[13px] text-chef-blue">View execution history</td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
-                    No nodes match the current filters.
+                  <td
+                    colSpan={NODE_COLUMNS.filter((column) => show(column.key)).length + 1}
+                    className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
+                  >
+                    No nodes reported compliance data in this window.
                   </td>
                 </tr>
               )}
@@ -461,254 +497,192 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
   );
 }
 
-
-function ProfilesTab({
-  rows,
-  onOpenResults,
-}: {
-  rows: ReturnType<typeof getProfileRows>;
-  onOpenResults: OpenResults;
-}) {
-  const navigate = useNavigate();
-
-  const filtered = rows;
-
-  const table = useTableControls({
-    rows: filtered,
-    searchFields: ["name", "version", "id", "rootProfile"],
-  });
-
-
+function AggregationCount({ status, value }: { status: AggregateControlStatus; value: number }) {
+  const tone =
+    status === "Passed"
+      ? "bg-chef-success-bg text-chef-green"
+      : status === "Failed" || status === "Error"
+        ? "bg-chef-danger-bg text-chef-red"
+        : status === "Skipped"
+          ? "bg-chef-amber-bg text-chef-amber"
+          : "bg-chef-pill text-chef-text-muted";
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface">
-        <div className="border-b border-chef-line px-3 pt-3">
-          <ResultsToolbar
-            title="Profiles"
-            resultLabel={`Showing ${table.rows.length} of ${filtered.length} profiles`}
-            query={table.query}
-            onQueryChange={table.search}
-            searchLabel="Search profiles"
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-chef-line bg-chef-canvas">
-                {[
-                  ["name", "Profile"],
-                  ["version", "Version"],
-                  ["id", "Identifier"],
-                  ["rootProfile", "Root Profile"],
-                ].map(([key, label]) => (
-
-                  <SortHeader
-                    key={key}
-                    label={label!}
-                    columnKey={key!}
-                    sortKey={table.sortKey}
-                    sortDirection={table.sortDirection}
-                    onSort={table.toggleSort}
-                  />
-                ))}
-                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Scan Results</th>
-              </tr>
-            </thead>
-            <tbody>
-              {table.rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() =>
-                    navigate({ to: "/reporting/inspec/profile/$profileId", params: { profileId: row.id } })
-                  }
-                  className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
-                >
-                  <td className="px-4 py-3 text-[13px] text-chef-text hover:text-chef-blue">{row.name}</td>
-                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.version}</td>
-                  <td className="px-4 py-3 font-mono text-[12px] text-chef-text-muted">{row.id}</td>
-                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.rootProfile}</td>
-                  <td className="px-4 py-3 text-[13px]" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onOpenResults({
-                          title: "Scan results for profile:",
-                          subtitle: row.name,
-                          controls: [],
-                          items: getProfileNodes(row.id).map((n) => ({
-                            id: n.scanId,
-                            label: n.nodeName,
-                            sublabel: n.relative,
-                            status: n.status,
-                          })),
-                          getControlsForItem: (item) => getProfileControlsForScan(row.id, item.id),
-                        })
-                      }
-                      className="text-chef-blue hover:underline"
-                    >
-                      View results
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {table.rows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
-
-                    No profiles match the current filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-
-      <Pager
-        rangeStart={table.rangeStart}
-        rangeEnd={table.rangeEnd}
-        total={filtered.length}
-        page={table.page}
-        pageCount={table.pageCount}
-        setPage={table.setPage}
-        pageSize={table.pageSize}
-        setPageSize={table.setPageSize}
-      />
-    </div>
+    <span
+      className={`inline-flex min-w-[48px] justify-center rounded-full px-2 py-1 text-[12px] font-medium ${tone}`}
+    >
+      {value.toLocaleString()}
+    </span>
   );
 }
 
-function ControlsTab({
-  rows,
-  onOpenResults,
-}: {
-  rows: ReturnType<typeof getControlRows>;
-  onOpenResults: OpenResults;
-}) {
-  const [severity, setSeverity] = useState("all");
-
+function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
+  const [profile, setProfile] = useState("all");
+  const [outcome, setOutcome] = useState<"all" | AggregateControlStatus>("all");
+  const profiles = useMemo(
+    () =>
+      Array.from(new Map(rows.map((row) => [row.profileId, row.profileName])).entries()).sort(
+        (a, b) => a[1].localeCompare(b[1]),
+      ),
+    [rows],
+  );
   const filtered = useMemo(
     () =>
       rows.filter((row) => {
-        if (severity !== "all" && row.severity !== severity) return false;
+        if (profile !== "all" && row.profileId !== profile) return false;
+        if (
+          outcome !== "all" &&
+          row.counts[outcome.toLowerCase() as Lowercase<AggregateControlStatus>] === 0
+        ) {
+          return false;
+        }
         return true;
       }),
-    [rows, severity],
+    [rows, profile, outcome],
   );
-
   const table = useTableControls({
     rows: filtered,
-    searchFields: ["key", "title", "profileName", "severity"],
+    searchFields: ["key", "title", "profileName"],
+    initialPageSize: 25,
   });
+  const grouped = useMemo(() => {
+    const groups = new Map<
+      string,
+      { name: string; version: string; controls: ControlAggregation[] }
+    >();
+    for (const row of table.rows) {
+      const group = groups.get(row.profileId) ?? {
+        name: row.profileName,
+        version: row.profileVersion,
+        controls: [],
+      };
+      group.controls.push(row);
+      groups.set(row.profileId, group);
+    }
+    return Array.from(groups.entries());
+  }, [table.rows]);
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface">
-        <div className="border-b border-chef-line px-3 pt-3">
-          <ResultsToolbar
-            title="Controls"
-            resultLabel={`Showing ${table.rows.length} of ${filtered.length} controls`}
-            query={table.query}
-            onQueryChange={table.search}
-            searchLabel="Search controls"
-            filterGroups={[
-              {
-                id: "severity",
-                label: "Severity",
-                value: severity,
-                onChange: setSeverity,
-                options: [
-                  { key: "all", label: "All severities" },
-                  { key: "Critical", label: "Critical" },
-                  { key: "Major", label: "Major" },
-                  { key: "Minor", label: "Minor" },
-                ],
-              },
-            ]}
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-chef-line bg-chef-canvas">
-                {[
-                  ["key", "Control"],
-                  ["profileName", "Profile"],
-                  ["severity", "Severity"],
-                ].map(([key, label]) => (
-                  <SortHeader
-                    key={key}
-                    label={label!}
-                    columnKey={key!}
-                    sortKey={table.sortKey}
-                    sortDirection={table.sortDirection}
-                    onSort={table.toggleSort}
-                  />
-                ))}
-                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Node Status</th>
-
-              </tr>
-            </thead>
-            <tbody>
-              {table.rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() =>
-                    onOpenResults({
-                      title: `${row.key}: ${row.title}`,
-                      subtitle: `${row.profileName} v${row.profileVersion}`,
-                      controls: [row],
-                    })
-                  }
-                  className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
-                >
-                  <td className="w-[42%] max-w-[520px] break-words px-4 py-3 align-top text-[13px] text-chef-text">
-                    <span className="font-semibold">{row.key}</span>: {row.title}
-                  </td>
-                  <td className="w-[20%] break-words px-4 py-3 align-top text-[13px] text-chef-text">{row.profileName}</td>
-                  <td className="px-4 py-3 align-top">
-                    <SeverityLabel severity={row.severity} impact={row.impact} />
-                  </td>
-                  <td className="px-4 py-3 align-top text-[13px] text-chef-text">
-                    <span className="flex flex-wrap items-center gap-2">
-                      {(
-                        [
-                          ["Failed", row.nodeStatus.failed],
-                          ["Passed", row.nodeStatus.passed],
-                          ["Skipped", row.nodeStatus.skipped],
-                          ["Waived", row.nodeStatus.waived],
-                        ] as const
-                      ).map(([status, count]) => (
-                        <span
-                          key={status}
-                          className="inline-flex items-center gap-1"
-                          title={`${count} ${status.toLowerCase()}`}
-                          aria-label={`${count} ${status.toLowerCase()}`}
-                        >
-                          <StatusIcon status={status} className="h-4 w-4" />
-                          <span className="text-chef-text-muted">{count}</span>
-                        </span>
-                      ))}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {table.rows.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
-
-                    No controls match the current filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+    <section>
+      <div className="mb-3 flex items-start gap-3">
+        <ShieldCheck className="mt-0.5 h-5 w-5 text-chef-blue" />
+        <div>
+          <h2 className="text-[18px] font-semibold text-chef-text">Control Status Across Nodes</h2>
+          <p className="mt-1 text-[13px] text-chef-text-muted">
+            Aggregated once per node from its latest execution in the selected reporting window.
+          </p>
         </div>
       </div>
 
+      <div className="rounded-sm border border-chef-line bg-chef-surface px-3 pt-3">
+        <ResultsToolbar
+          title="Profile and Control Aggregation"
+          resultLabel={`Showing ${table.rows.length} of ${filtered.length} controls`}
+          query={table.query}
+          onQueryChange={table.search}
+          searchLabel="Search profiles and controls"
+          filterGroups={[
+            {
+              id: "profile",
+              label: "Profile",
+              value: profile,
+              onChange: setProfile,
+              options: [
+                { key: "all", label: "All profiles" },
+                ...profiles.map(([key, label]) => ({ key, label })),
+              ],
+            },
+            {
+              id: "outcome",
+              label: "Outcome",
+              value: outcome,
+              onChange: (value) => setOutcome(value as "all" | AggregateControlStatus),
+              options: [
+                { key: "all", label: "All outcomes" },
+                { key: "Passed", label: "Passed" },
+                { key: "Failed", label: "Failed" },
+                { key: "Skipped", label: "Skipped" },
+                { key: "Error", label: "Error" },
+                { key: "Other", label: "Other" },
+              ],
+            },
+          ]}
+        />
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {grouped.map(([profileId, group]) => (
+          <details
+            key={profileId}
+            open
+            className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface"
+          >
+            <summary className="cursor-pointer list-none border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
+              <span className="text-[14px] font-semibold text-chef-text">{group.name}</span>
+              <span className="ml-2 text-[12px] text-chef-text-muted">v{group.version}</span>
+            </summary>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-chef-line">
+                    <th className="px-4 py-3 text-[12px] font-semibold text-chef-text">Control</th>
+                    <th className="px-4 py-3 text-[12px] font-semibold text-chef-text">Impact</th>
+                    <th className="px-4 py-3 text-center text-[12px] font-semibold text-chef-text">
+                      Nodes
+                    </th>
+                    {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
+                      <th
+                        key={status}
+                        className="px-3 py-3 text-center text-[12px] font-semibold text-chef-text"
+                      >
+                        {status}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.controls.map((control) => (
+                    <tr key={control.id} className="border-b border-chef-line last:border-0">
+                      <td className="max-w-[560px] px-4 py-3">
+                        <div className="break-all text-[13px] font-semibold text-chef-text">
+                          {control.key}
+                        </div>
+                        <div className="mt-0.5 text-[12px] text-chef-text-muted">
+                          {control.title}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <SeverityLabel severity={control.severity} impact={control.impact} />
+                      </td>
+                      <td className="px-4 py-3 text-center text-[13px] text-chef-text">
+                        {control.nodeCount.toLocaleString()}
+                      </td>
+                      {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map(
+                        (status) => (
+                          <td key={status} className="px-3 py-3 text-center">
+                            <AggregationCount
+                              status={status}
+                              value={
+                                control.counts[
+                                  status.toLowerCase() as Lowercase<AggregateControlStatus>
+                                ]
+                              }
+                            />
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ))}
+        {grouped.length === 0 && (
+          <div className="rounded-sm border border-chef-line bg-chef-surface px-4 py-10 text-center text-[13px] text-chef-text-muted">
+            No controls match the current filters.
+          </div>
+        )}
+      </div>
 
       <Pager
         rangeStart={table.rangeStart}
@@ -720,6 +694,6 @@ function ControlsTab({
         pageSize={table.pageSize}
         setPageSize={table.setPageSize}
       />
-    </div>
+    </section>
   );
 }

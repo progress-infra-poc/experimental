@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { StatusIcon, StatusPill } from "../StatusPill";
 import { SplitButton } from "../TableToolbar";
 import { type CountFilter } from "./CountCards";
@@ -6,23 +7,12 @@ import { ResultsToolbar } from "./ResultsToolbar";
 import { ControlTable } from "./ControlTable";
 import { ScanResultsDrawer } from "./ScanResultsDrawer";
 import { ScanHistoryPanel } from "./ScanHistoryPanel";
-import type { ControlDetail, ScanDetail, ScanHistoryItem } from "@/data/complianceDetail";
-
-function InfoCard({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
-  return (
-    <section className="rounded-sm border border-chef-line bg-chef-surface p-4">
-      <h2 className="mb-3 text-[14px] font-semibold text-chef-text">{title}</h2>
-      <dl className="space-y-2">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-start justify-between gap-4">
-            <dt className="text-[13px] text-chef-text-muted">{row.label}</dt>
-            <dd className="max-w-[60%] break-words text-right text-[13px] text-chef-text">{row.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
+import {
+  getScanDetail,
+  type ControlDetail,
+  type ScanDetail,
+  type ScanHistoryItem,
+} from "@/data/complianceDetail";
 
 export function ComplianceScanDetailPanel({
   detail,
@@ -33,16 +23,16 @@ export function ComplianceScanDetailPanel({
   history: ScanHistoryItem[];
   showHeader?: boolean;
 }) {
-  const { scan, counts, controls } = detail;
-
+  const [selectedScanId, setSelectedScanId] = useState(detail.scan.id);
   const [filter, setFilter] = useState<CountFilter>("all");
   const [query, setQuery] = useState("");
   const [severity, setSeverity] = useState("all");
-  
-  const [activeTimestamp, setActiveTimestamp] = useState(history[0]?.timestamp ?? detail.timestamp);
   const [selectedControl, setSelectedControl] = useState<ControlDetail | null>(null);
 
-  const visible = useMemo(() => {
+  const selectedDetail = getScanDetail(selectedScanId) ?? detail;
+  const { scan, counts, profiles, controls } = selectedDetail;
+
+  const visibleControls = useMemo(() => {
     const q = query.trim().toLowerCase();
     return controls.filter((control) => {
       if (filter !== "all" && control.status !== filter) return false;
@@ -52,98 +42,120 @@ export function ComplianceScanDetailPanel({
     });
   }, [controls, filter, severity, query]);
 
+  const profileResults = profiles
+    .map((profile) => ({
+      profile,
+      controls: visibleControls.filter((control) => control.profileId === profile.id),
+      totalControls: controls.filter((control) => control.profileId === profile.id).length,
+    }))
+    .filter(
+      ({ controls: profileControls }) =>
+        profileControls.length > 0 || (!query && filter === "all" && severity === "all"),
+    );
+
   return (
-    <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="space-y-6">
-      <div className="rounded-sm border border-chef-line bg-chef-surface">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-chef-line px-4 py-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusPill status={scan.status} />
-              {showHeader ? (
-                <h1 className="text-[18px] font-semibold text-chef-text">
-                  {scan.node} • Compliance Scan • Last Scan: {scan.lastScan}
-                </h1>
-              ) : (
-                <h2 className="text-[18px] font-semibold text-chef-text">
-                  Compliance Scan • Last Scan: {scan.lastScan}
-                </h2>
-              )}
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0 space-y-6">
+        <section className="rounded-sm border border-chef-line bg-chef-surface">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-chef-line px-4 py-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusPill status={scan.status} />
+                {showHeader ? (
+                  <h1 className="text-[20px] font-semibold text-chef-text">{scan.node}</h1>
+                ) : (
+                  <h2 className="text-[18px] font-semibold text-chef-text">Compliance execution</h2>
+                )}
+              </div>
+              <p className="mt-1 text-[12px] text-chef-text-muted">
+                Latest known node state with selectable historical executions
+              </p>
             </div>
-            <p className="mt-1 text-[12px] text-chef-text-muted">
-              Node ID: {detail.nodeId}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
             <SplitButton label="Export" />
           </div>
-        </div>
 
-        <div className="grid items-start gap-4 p-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-          <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
-            <h3 className="text-[13px] font-semibold text-chef-text">Scan Information</h3>
-            <dl className="mt-3 space-y-2">
-              {[
-                { label: "Last Scan", value: activeTimestamp },
-                { label: "Inspec Version", value: detail.inspecVersion },
-                { label: "IP Address", value: detail.ipAddress },
-                { label: "Platform", value: scan.platform },
-                { label: "Environment", value: scan.environment },
-                { label: "Profiles", value: String(detail.profiles.length) },
-              ].map((row) => (
-                <div key={row.label} className="flex items-start justify-between gap-4">
-                  <dt className="text-[12px] text-chef-text-muted">{row.label}</dt>
-                  <dd className="text-right text-[12px] text-chef-text">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
+          <div className="border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 text-[13px] text-chef-text-muted">
+              <span>Node</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span>Execution History</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span className="font-medium text-chef-text">{selectedDetail.timestamp}</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span>Profiles</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span>Controls</span>
+            </div>
+          </div>
 
-          <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
-            <h3 className="text-[13px] font-semibold text-chef-text">Controls Overview</h3>
-            <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
-              <li>
-                <span className="text-[13px] text-chef-text">Total Controls</span>
-                <span className="mt-2 block text-[22px] text-chef-text">{counts.total}</span>
-              </li>
-              {([
-                { status: "Failed", label: "Failed", value: counts.failed },
-                { status: "Passed", label: "Passed", value: counts.passed },
-                { status: "Skipped", label: "Skipped", value: counts.skipped },
-                { status: "Waived", label: "Waived", value: counts.waived },
-              ] as const).map((item) => (
-                <li key={item.label}>
-                  <span className="flex items-center gap-2 text-[13px] text-chef-text">
-                    <StatusIcon status={item.status} className="h-4 w-4" />
-                    {item.label}
-                  </span>
-                  <span className="mt-2 block text-[22px] text-chef-text">{item.value}</span>
+          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+            <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
+              <h3 className="text-[13px] font-semibold text-chef-text">Execution Information</h3>
+              <dl className="mt-3 space-y-2">
+                {[
+                  { label: "Executed", value: selectedDetail.timestamp },
+                  { label: "Duration", value: selectedDetail.duration },
+                  { label: "InSpec Version", value: selectedDetail.inspecVersion },
+                  { label: "Node ID", value: selectedDetail.nodeId },
+                  { label: "IP Address", value: selectedDetail.ipAddress },
+                  { label: "Platform", value: scan.platform },
+                  { label: "Environment", value: scan.environment },
+                  { label: "Profiles", value: String(profiles.length) },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-start justify-between gap-4">
+                    <dt className="text-[12px] text-chef-text-muted">{row.label}</dt>
+                    <dd className="max-w-[65%] break-words text-right text-[12px] text-chef-text">
+                      {row.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+
+            <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
+              <h3 className="text-[13px] font-semibold text-chef-text">Execution Outcome</h3>
+              <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
+                <li>
+                  <span className="text-[13px] text-chef-text">Total Controls</span>
+                  <span className="mt-2 block text-[22px] text-chef-text">{counts.total}</span>
                 </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      </div>
+                {(
+                  [
+                    { status: "Failed", label: "Failed", value: counts.failed },
+                    { status: "Passed", label: "Passed", value: counts.passed },
+                    { status: "Skipped", label: "Skipped", value: counts.skipped },
+                    { status: "Waived", label: "Other", value: counts.waived },
+                  ] as const
+                ).map((item) => (
+                  <li key={item.label}>
+                    <span className="flex items-center gap-2 text-[13px] text-chef-text">
+                      <StatusIcon status={item.status} className="h-4 w-4" />
+                      {item.label}
+                    </span>
+                    <span className="mt-2 block text-[22px] text-chef-text">{item.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </section>
 
-      <div>
-        <ControlTable
-          controls={visible}
-          onScanResults={setSelectedControl}
-          toolbar={
+        <section>
+          <div className="rounded-sm border border-chef-line bg-chef-surface px-3 pt-3">
             <ResultsToolbar
-              title="Controls"
-              resultLabel={`Showing ${visible.length} of ${controls.length} controls`}
+              title="Profile Results"
+              resultLabel={`${profiles.length} profiles • ${visibleControls.length} of ${controls.length} controls`}
               query={query}
               onQueryChange={setQuery}
-              searchLabel="Search controls"
+              searchLabel="Search profiles and controls"
               activeFilter={filter}
               onFilterChange={(key) => setFilter(key as CountFilter)}
               filterOptions={[
-                { key: "all", label: "Total Controls", count: counts.total },
-                { key: "Failed", label: "Failed Controls", count: counts.failed },
-                { key: "Passed", label: "Passed Controls", count: counts.passed },
-                { key: "Skipped", label: "Skipped Controls", count: counts.skipped },
-                { key: "Waived", label: "Waived Controls", count: counts.waived },
+                { key: "all", label: "All controls" },
+                { key: "Failed", label: "Failed" },
+                { key: "Passed", label: "Passed" },
+                { key: "Skipped", label: "Skipped" },
+                { key: "Waived", label: "Other" },
               ]}
               filterGroups={[
                 {
@@ -160,23 +172,63 @@ export function ComplianceScanDetailPanel({
                 },
               ]}
             />
-          }
-        />
-      </div>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            {profileResults.map(({ profile, controls: profileControls, totalControls }) => (
+              <details
+                key={profile.id}
+                open
+                className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface"
+              >
+                <summary className="cursor-pointer list-none border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <StatusPill status={profile.status} />
+                      <span>
+                        <span className="block text-[14px] font-semibold text-chef-text">
+                          {profile.name}
+                        </span>
+                        <span className="block text-[12px] text-chef-text-muted">
+                          {profile.rootProfile} • v{profile.version}
+                        </span>
+                      </span>
+                    </div>
+                    <span className="text-[12px] text-chef-text-muted">
+                      {profileControls.length} of {totalControls} controls
+                    </span>
+                  </div>
+                </summary>
+                <div className="p-3">
+                  <ControlTable controls={profileControls} onScanResults={setSelectedControl} />
+                </div>
+              </details>
+            ))}
+            {profileResults.length === 0 && (
+              <div className="rounded-sm border border-chef-line bg-chef-surface px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                No profiles or controls match the current filters.
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
-      <div className="xl:sticky xl:top-4 xl:h-full xl:max-h-[calc(100vh-2rem)]">
+      <div className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)]">
         <ScanHistoryPanel
           history={history}
-          activeTimestamp={activeTimestamp}
-          onSelect={(item) => setActiveTimestamp(item.timestamp)}
+          selectedScanId={selectedScanId}
+          onSelect={(item) => {
+            setSelectedScanId(item.scanId);
+            setSelectedControl(null);
+          }}
         />
       </div>
+
       <ScanResultsDrawer
         open={selectedControl !== null}
         onClose={() => setSelectedControl(null)}
-        title="Scan Results"
-        subtitle={selectedControl ? `${selectedControl.key}: ${selectedControl.title}` : ""}
+        title="Control Results"
+        subtitle={selectedControl ? `${selectedControl.profileName} • ${selectedControl.key}` : ""}
         controls={selectedControl ? [selectedControl] : []}
       />
     </div>
