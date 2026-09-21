@@ -454,10 +454,25 @@ export function getScanDetail(scanId: string): ScanDetail | undefined {
 }
 
 /** Latest scan per node in the selected reporting window, most recent first. */
-export function getLatestComplianceScans(rangeHours = Number.POSITIVE_INFINITY): ComplianceScan[] {
+function reportIsInWindow(report: RawReport, rangeHours: number, selectedDate?: Date): boolean {
+  if (selectedDate) {
+    const reportDate = new Date(report.endTime * 1000);
+    return (
+      reportDate.getFullYear() === selectedDate.getFullYear() &&
+      reportDate.getMonth() === selectedDate.getMonth() &&
+      reportDate.getDate() === selectedDate.getDate()
+    );
+  }
+  return (NOW - report.endTime) / 3600 <= rangeHours;
+}
+
+export function getLatestComplianceScans(
+  rangeHours = Number.POSITIVE_INFINITY,
+  selectedDate?: Date,
+): ComplianceScan[] {
   const latest = new Map<string, RawReport>();
   for (const report of reports) {
-    if ((NOW - report.endTime) / 3600 > rangeHours) continue;
+    if (!reportIsInWindow(report, rangeHours, selectedDate)) continue;
     const current = latest.get(report.nodeName);
     if (!current || report.endTime > current.endTime) latest.set(report.nodeName, report);
   }
@@ -503,10 +518,11 @@ function aggregateStatusOf(control: RawControl): AggregateControlStatus {
  */
 export function getLatestControlAggregations(
   rangeHours = Number.POSITIVE_INFINITY,
+  selectedDate?: Date,
 ): ControlAggregation[] {
   const latestByNode = new Map<string, RawReport>();
   for (const report of reports) {
-    if ((NOW - report.endTime) / 3600 > rangeHours) continue;
+    if (!reportIsInWindow(report, rangeHours, selectedDate)) continue;
     const current = latestByNode.get(report.nodeId);
     if (!current || report.endTime > current.endTime) latestByNode.set(report.nodeId, report);
   }

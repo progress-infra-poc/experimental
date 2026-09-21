@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CalendarDays } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
@@ -8,6 +9,9 @@ import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
 import { SeverityLabel, type CountFilter } from "@/components/chef/reporting/CountCards";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTableControls } from "@/hooks/useTableControls";
 import {
   getLatestComplianceScans,
@@ -49,12 +53,6 @@ const NODE_COLUMNS = [
   { key: "controlFailures", label: "Control Failures" },
 ];
 
-const WINDOWS = [
-  { label: "Last 24 hours", hours: 24 },
-  { label: "Last 7 days", hours: 24 * 7 },
-  { label: "Last 30 days", hours: 24 * 30 },
-];
-
 interface NodeRow {
   id: string;
   lastScan: string;
@@ -70,8 +68,8 @@ interface NodeRow {
   waived: number;
 }
 
-function buildNodeRows(rangeHours: number): NodeRow[] {
-  return getLatestComplianceScans(rangeHours).map((scan) => {
+function buildNodeRows(rangeHours: number, selectedDate?: Date): NodeRow[] {
+  return getLatestComplianceScans(rangeHours, selectedDate).map((scan) => {
     const detail = getScanDetail(scan.id);
     const counts = detail?.counts ?? { total: 0, failed: 0, passed: 0, skipped: 0, waived: 0 };
     return {
@@ -156,10 +154,17 @@ function Pager({
 
 function InspecReportingPage() {
   const [tab, setTab] = useState("nodes");
-  const [rangeHours, setRangeHours] = useState(WINDOWS[0]!.hours);
-  const nodeRows = useMemo(() => buildNodeRows(rangeHours), [rangeHours]);
+  const [range, setRange] = useState<"24h" | "date">("24h");
+  const [selectedDate, setSelectedDate] = useState<Date>();
+  const nodeRows = useMemo(
+    () => buildNodeRows(24, range === "date" ? selectedDate : undefined),
+    [range, selectedDate],
+  );
   const profileRows = useMemo(getProfileRows, []);
-  const aggregations = useMemo(() => getLatestControlAggregations(rangeHours), [rangeHours]);
+  const aggregations = useMemo(
+    () => getLatestControlAggregations(24, range === "date" ? selectedDate : undefined),
+    [range, selectedDate],
+  );
 
   return (
     <ModuleLayout
@@ -176,18 +181,62 @@ function InspecReportingPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select
-            aria-label="Reporting window"
-            value={rangeHours}
-            onChange={(event) => setRangeHours(Number(event.target.value))}
-            className="h-10 rounded-sm border border-chef-line bg-chef-surface px-3 text-[13px] text-chef-text outline-none focus:border-chef-blue"
-          >
-            {WINDOWS.map((window) => (
-              <option key={window.hours} value={window.hours}>
-                {window.label}
-              </option>
-            ))}
-          </select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-sm border-chef-line bg-chef-surface px-3 text-[13px] font-normal text-chef-text"
+              >
+                <CalendarDays className="h-4 w-4" />
+                {range === "date" && selectedDate
+                  ? selectedDate.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "Last 24 hours"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-3">
+              <button
+                type="button"
+                className={`w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+                  range === "24h"
+                    ? "bg-chef-blue text-white"
+                    : "text-chef-text hover:bg-chef-canvas"
+                }`}
+                onClick={() => {
+                  setRange("24h");
+                  setSelectedDate(undefined);
+                }}
+              >
+                Last 24 hours
+              </button>
+              <button
+                type="button"
+                className={`mt-1 w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+                  range === "date"
+                    ? "bg-chef-blue text-white"
+                    : "text-chef-text hover:bg-chef-canvas"
+                }`}
+                onClick={() => setRange("date")}
+              >
+                Choose date
+              </button>
+              {range === "date" && (
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    setSelectedDate(date);
+                    if (date) setRange("date");
+                  }}
+                  initialFocus
+                />
+              )}
+            </PopoverContent>
+          </Popover>
           <SplitButton label="Export" />
         </div>
       </div>
