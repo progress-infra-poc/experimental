@@ -20,10 +20,11 @@
 
         params.delete("p");
         var query = params.toString();
+        var base = window.location.pathname.replace(/\/$/, "");
         window.history.replaceState(
           null,
           "",
-          route + (query ? "?" + query : "") + window.location.hash,
+          base + route + (query ? "?" + query : "") + window.location.hash,
         );
       })();
     </script>
