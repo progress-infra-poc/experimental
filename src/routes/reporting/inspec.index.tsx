@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
-import { StatusIcon, StatusPill, type StatusKind } from "@/components/chef/StatusPill";
+import { StatusIcon, type StatusKind } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
@@ -42,8 +42,7 @@ export const Route = createFileRoute("/reporting/inspec/")({
 
 const NODE_COLUMNS = [
   { key: "node", label: "Node" },
-  { key: "status", label: "Latest Status" },
-  { key: "lastScan", label: "Latest Execution" },
+  { key: "lastScan", label: "Last Scan" },
   { key: "platform", label: "Platform" },
   { key: "environment", label: "Environment" },
   { key: "profiles", label: "Profiles" },
@@ -413,9 +412,6 @@ function NodesTable({ rows }: { rows: NodeRow[] }) {
                     onSort={table.toggleSort}
                   />
                 ))}
-                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">
-                  Investigation
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -429,11 +425,6 @@ function NodesTable({ rows }: { rows: NodeRow[] }) {
                 >
                   {show("node") && (
                     <td className="px-4 py-3 text-[13px] font-medium text-chef-blue">{row.node}</td>
-                  )}
-                  {show("status") && (
-                    <td className="px-4 py-3">
-                      <StatusPill status={row.status} />
-                    </td>
                   )}
                   {show("lastScan") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.lastScan}</td>
@@ -450,13 +441,12 @@ function NodesTable({ rows }: { rows: NodeRow[] }) {
                   {show("controlFailures") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlFailures}</td>
                   )}
-                  <td className="px-4 py-3 text-[13px] text-chef-blue">View execution history</td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={NODE_COLUMNS.filter((column) => show(column.key)).length + 1}
+                    colSpan={NODE_COLUMNS.filter((column) => show(column.key)).length}
                     className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
                   >
                     No nodes reported compliance data in this window.
