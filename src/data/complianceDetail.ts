@@ -53,7 +53,184 @@ export interface RawReport {
   profiles: RawProfile[];
 }
 
-export const reports = rawReports as RawReport[];
+const MULTI_PROFILE_DEMO_SCAN_ID = "9597de0d-ee16-474e-9fef-62d8a7b0cd08";
+
+const demoProfiles: RawProfile[] = [
+  {
+    name: "linux-baseline",
+    title: "Linux Security Baseline",
+    version: "2.3.0",
+    maintainer: "Chef Software, Inc.",
+    maintainerEmail: "support@chef.io",
+    summary: "Core operating system hardening and configuration checks.",
+    sha256: "demo-linux-baseline",
+    status: "failed",
+    controls: [
+      {
+        id: "linux-01",
+        title: "Ensure password authentication is disabled",
+        desc: "Prevents password-based SSH access in favor of stronger authentication methods.",
+        impact: 1,
+        code: "control 'linux-01' do\n  impact 1.0\n  describe sshd_config do\n    its('PasswordAuthentication') { should cmp 'no' }\n  end\nend",
+        sourceRef: "controls/ssh.rb",
+        sourceLine: 12,
+        waived: false,
+        results: [
+          {
+            status: "failed",
+            codeDesc: "sshd_config PasswordAuthentication is expected to equal no",
+            runTime: 0.014,
+            message: "expected: no, actual: yes",
+          },
+        ],
+      },
+      {
+        id: "linux-02",
+        title: "Ensure the firewall service is enabled",
+        desc: "Confirms that the host firewall is enabled and running.",
+        impact: 0.8,
+        code: "control 'linux-02' do\n  impact 0.8\n  describe service('firewalld') do\n    it { should be_enabled }\n    it { should be_running }\n  end\nend",
+        sourceRef: "controls/firewall.rb",
+        sourceLine: 8,
+        waived: false,
+        results: [
+          {
+            status: "passed",
+            codeDesc: "Service firewalld is expected to be enabled",
+            runTime: 0.009,
+          },
+          {
+            status: "passed",
+            codeDesc: "Service firewalld is expected to be running",
+            runTime: 0.006,
+          },
+        ],
+      },
+      {
+        id: "linux-03",
+        title: "Ensure audit logging is configured",
+        desc: "Validates that audit logging captures privileged activity.",
+        impact: 0.6,
+        code: "control 'linux-03' do\n  impact 0.6\n  describe service('auditd') do\n    it { should be_running }\n  end\nend",
+        sourceRef: "controls/audit.rb",
+        sourceLine: 18,
+        waived: false,
+        results: [
+          {
+            status: "skipped",
+            codeDesc: "Service auditd requires manual validation",
+            runTime: 0,
+            skipMessage: "Audit rules are managed by the platform security team.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: "chef-client-hardening",
+    title: "Chef Client Hardening",
+    version: "1.4.2",
+    maintainer: "Chef Platform Engineering",
+    maintainerEmail: "platform@example.com",
+    summary: "Chef Infra Client configuration, permissions, and service health.",
+    sha256: "demo-chef-client-hardening",
+    status: "passed",
+    controls: [
+      {
+        id: "chef-01",
+        title: "Ensure the Chef Infra Client service is running",
+        desc: "Checks that the Chef Infra Client service is available on the node.",
+        impact: 0.9,
+        code: "control 'chef-01' do\n  impact 0.9\n  describe service('chef-client') do\n    it { should be_running }\n  end\nend",
+        sourceRef: "controls/client.rb",
+        sourceLine: 5,
+        waived: false,
+        results: [
+          {
+            status: "passed",
+            codeDesc: "Service chef-client is expected to be running",
+            runTime: 0.008,
+          },
+        ],
+      },
+      {
+        id: "chef-02",
+        title: "Ensure client configuration permissions are restricted",
+        desc: "Checks that client.rb cannot be modified by unprivileged users.",
+        impact: 0.7,
+        code: "control 'chef-02' do\n  impact 0.7\n  describe file('/etc/chef/client.rb') do\n    its('mode') { should cmp '0640' }\n  end\nend",
+        sourceRef: "controls/client.rb",
+        sourceLine: 14,
+        waived: false,
+        results: [
+          {
+            status: "passed",
+            codeDesc: "File /etc/chef/client.rb mode is expected to cmp 0640",
+            runTime: 0.003,
+          },
+        ],
+      },
+      {
+        id: "chef-03",
+        title: "Ensure validation keys are not present",
+        desc: "Confirms that obsolete organization validation keys have been removed.",
+        impact: 0.5,
+        code: "control 'chef-03' do\n  impact 0.5\n  describe file('/etc/chef/validation.pem') do\n    it { should_not exist }\n  end\nend",
+        sourceRef: "controls/client.rb",
+        sourceLine: 23,
+        waived: false,
+        results: [
+          {
+            status: "passed",
+            codeDesc: "File /etc/chef/validation.pem is expected not to exist",
+            runTime: 0.002,
+          },
+        ],
+      },
+    ],
+  },
+];
+
+export const reports = (rawReports as RawReport[]).map((report) => {
+  if (report.id !== MULTI_PROFILE_DEMO_SCAN_ID) return report;
+
+  const [primaryProfile] = report.profiles;
+  const expandedPrimaryProfile: RawProfile | undefined = primaryProfile
+    ? {
+        ...primaryProfile,
+        controls: [
+          ...primaryProfile.controls,
+          {
+            id: "client-config",
+            title: "Chef Infra Client configuration is present",
+            desc: "Checks that the node has a readable Chef Infra Client configuration.",
+            impact: 0.5,
+            code: "control 'client-config' do\n  impact 0.5\n  describe file('/etc/chef/client.rb') do\n    it { should exist }\n    it { should be_readable }\n  end\nend",
+            sourceRef: "controls/default.rb",
+            sourceLine: 20,
+            waived: false,
+            results: [
+              {
+                status: "passed",
+                codeDesc: "File /etc/chef/client.rb is expected to exist",
+                runTime: 0.002,
+              },
+              {
+                status: "passed",
+                codeDesc: "File /etc/chef/client.rb is expected to be readable",
+                runTime: 0.001,
+              },
+            ],
+          },
+        ],
+      }
+    : undefined;
+
+  return {
+    ...report,
+    profiles: [...(expandedPrimaryProfile ? [expandedPrimaryProfile] : []), ...demoProfiles],
+  };
+});
 
 /* -------------------------------- app types ------------------------------ */
 
