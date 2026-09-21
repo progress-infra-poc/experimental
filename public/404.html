@@ -6,7 +6,7 @@
     <title>Redirecting...</title>
     <script>
       (function () {
-        var base = "/reporting-prototype";
+        var base = "/" + window.location.pathname.split("/")[1];
         var route = window.location.pathname.slice(base.length) || "/";
         var target =
           base +
