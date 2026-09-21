@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
@@ -194,21 +194,7 @@ function InspecReportingPage() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-sm border border-chef-line bg-chef-canvas/40 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2 text-[13px] text-chef-text-muted">
-          <span className="font-medium text-chef-text">Node</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span>Execution History</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span>Execution</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span>Profile</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span>Controls</span>
-        </div>
-      </div>
-
-      <div className="mt-5">
+      <div className="mt-6">
         <TabStrip
           tabs={[
             { id: "nodes", label: "Nodes", count: nodeRows.length },
