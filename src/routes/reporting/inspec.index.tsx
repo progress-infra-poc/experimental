@@ -160,7 +160,10 @@ function InspecReportingPage() {
     () => buildNodeRows(24, range === "date" ? selectedDate : undefined),
     [range, selectedDate],
   );
-  const profileRows = useMemo(getProfileRows, []);
+  const profileRows = useMemo(
+    () => getProfileRows(24, range === "date" ? selectedDate : undefined),
+    [range, selectedDate],
+  );
   const aggregations = useMemo(
     () => getLatestControlAggregations(24, range === "date" ? selectedDate : undefined),
     [range, selectedDate],
@@ -181,62 +184,6 @@ function InspecReportingPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 rounded-sm border-chef-line bg-chef-surface px-3 text-[13px] font-normal text-chef-text"
-              >
-                <CalendarDays className="h-4 w-4" />
-                {range === "date" && selectedDate
-                  ? selectedDate.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : "Last 24 hours"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto p-3">
-              <button
-                type="button"
-                className={`w-full rounded-sm px-3 py-2 text-left text-[13px] ${
-                  range === "24h"
-                    ? "bg-chef-blue text-white"
-                    : "text-chef-text hover:bg-chef-canvas"
-                }`}
-                onClick={() => {
-                  setRange("24h");
-                  setSelectedDate(undefined);
-                }}
-              >
-                Last 24 hours
-              </button>
-              <button
-                type="button"
-                className={`mt-1 w-full rounded-sm px-3 py-2 text-left text-[13px] ${
-                  range === "date"
-                    ? "bg-chef-blue text-white"
-                    : "text-chef-text hover:bg-chef-canvas"
-                }`}
-                onClick={() => setRange("date")}
-              >
-                Choose date
-              </button>
-              {range === "date" && (
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => {
-                    setSelectedDate(date);
-                    if (date) setRange("date");
-                  }}
-                  initialFocus
-                />
-              )}
-            </PopoverContent>
-          </Popover>
           <SplitButton label="Export" />
         </div>
       </div>
@@ -254,11 +201,86 @@ function InspecReportingPage() {
       </div>
 
       <div className="mt-5">
+        <div className="mb-4 flex justify-end">
+          <ReportingDateFilter
+            range={range}
+            selectedDate={selectedDate}
+            onRangeChange={setRange}
+            onDateChange={setSelectedDate}
+          />
+        </div>
         {tab === "nodes" && <NodesTable rows={nodeRows} />}
         {tab === "profiles" && <ProfilesTable rows={profileRows} />}
         {tab === "controls" && <ControlAggregationSection rows={aggregations} />}
       </div>
     </ModuleLayout>
+  );
+}
+
+function ReportingDateFilter({
+  range,
+  selectedDate,
+  onRangeChange,
+  onDateChange,
+}: {
+  range: "24h" | "date";
+  selectedDate: Date | undefined;
+  onRangeChange: (range: "24h" | "date") => void;
+  onDateChange: (date: Date | undefined) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-sm border-chef-line bg-chef-surface px-3 text-[13px] font-normal text-chef-text"
+        >
+          <CalendarDays className="h-4 w-4" />
+          {range === "date" && selectedDate
+            ? selectedDate.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "Last 24 hours"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto p-3">
+        <button
+          type="button"
+          className={`w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+            range === "24h" ? "bg-chef-blue text-white" : "text-chef-text hover:bg-chef-canvas"
+          }`}
+          onClick={() => {
+            onRangeChange("24h");
+            onDateChange(undefined);
+          }}
+        >
+          Last 24 hours
+        </button>
+        <button
+          type="button"
+          className={`mt-1 w-full rounded-sm px-3 py-2 text-left text-[13px] ${
+            range === "date" ? "bg-chef-blue text-white" : "text-chef-text hover:bg-chef-canvas"
+          }`}
+          onClick={() => onRangeChange("date")}
+        >
+          Choose date
+        </button>
+        {range === "date" && (
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              onDateChange(date);
+              if (date) onRangeChange("date");
+            }}
+            initialFocus
+          />
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -565,7 +587,6 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
       if (key === "control") return row.key;
       if (key === "profileName") return row.profileName;
       if (key === "impact") return row.impact;
-      if (key === "nodeCount") return row.nodeCount;
       return "";
     },
   });
@@ -623,13 +644,6 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 sortDirection={table.sortDirection}
                 onSort={table.toggleSort}
               />
-              <SortHeader
-                label="Nodes"
-                columnKey="nodeCount"
-                sortKey={table.sortKey}
-                sortDirection={table.sortDirection}
-                onSort={table.toggleSort}
-              />
               <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Resources</th>
             </tr>
           </thead>
@@ -651,9 +665,6 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 <td className="px-4 py-3">
                   <SeverityLabel severity={control.severity} impact={control.impact} />
                 </td>
-                <td className="px-4 py-3 text-center text-[13px] text-chef-text">
-                  {control.nodeCount.toLocaleString()}
-                </td>
                 <td className="px-4 py-3">
                   <ControlResources control={control} />
                 </td>
@@ -661,7 +672,7 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
             ))}
             {table.rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
                   No controls match the current filters.
                 </td>
               </tr>

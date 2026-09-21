@@ -585,10 +585,24 @@ const profileIndex = (() => {
   return map;
 })();
 
-export function getProfileRows(): ProfileRow[] {
-  return Array.from(profileIndex.values()).map(({ profile, nodes }) => {
+export function getProfileRows(
+  rangeHours = Number.POSITIVE_INFINITY,
+  selectedDate?: Date,
+): ProfileRow[] {
+  const profilesInWindow = new Map<string, { profile: RawProfile; nodes: Set<string> }>();
+  for (const report of reports) {
+    if (!reportIsInWindow(report, rangeHours, selectedDate)) continue;
+    for (const profile of report.profiles) {
+      const key = profileSlug(profile);
+      const entry = profilesInWindow.get(key) ?? { profile, nodes: new Set<string>() };
+      entry.nodes.add(report.nodeName);
+      profilesInWindow.set(key, entry);
+    }
+  }
+
+  return Array.from(profilesInWindow.values()).map(({ profile, nodes }) => {
     const detail = toProfileDetail(profile);
-    const controls = getProfileControls(detail.id);
+    const controls = profile.controls.map((control) => toControl(control, profile, ""));
     return {
       ...detail,
       controlCount: controls.length,
