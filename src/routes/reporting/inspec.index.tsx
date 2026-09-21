@@ -510,10 +510,12 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
   );
   const table = useTableControls({
     rows: filtered,
-    searchFields: ["key", "title"],
+    searchFields: ["key", "title", "profileName"],
     initialPageSize: 25,
     sortAccessor: (row, key) => {
       if (key === "control") return row.key;
+      if (key === "profileName") return row.profileName;
+      if (key === "lastScan") return row.lastScanTimestamp;
       if (key === "impact") return row.impact;
       if (key === "nodeCount") return row.nodeCount;
       return "";
@@ -560,6 +562,20 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 onSort={table.toggleSort}
               />
               <SortHeader
+                label="Profile"
+                columnKey="profileName"
+                sortKey={table.sortKey}
+                sortDirection={table.sortDirection}
+                onSort={table.toggleSort}
+              />
+              <SortHeader
+                label="Last Scan"
+                columnKey="lastScan"
+                sortKey={table.sortKey}
+                sortDirection={table.sortDirection}
+                onSort={table.toggleSort}
+              />
+              <SortHeader
                 label="Impact"
                 columnKey="impact"
                 sortKey={table.sortKey}
@@ -585,6 +601,13 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                   </div>
                   <div className="mt-0.5 text-[12px] text-chef-text-muted">{control.title}</div>
                 </td>
+                <td className="px-4 py-3 text-[13px] text-chef-text">
+                  <div>{control.profileName}</div>
+                  <div className="mt-0.5 text-[12px] text-chef-text-muted">
+                    v{control.profileVersion}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-[13px] text-chef-text">{control.lastScan}</td>
                 <td className="px-4 py-3">
                   <SeverityLabel severity={control.severity} impact={control.impact} />
                 </td>
@@ -598,7 +621,7 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
             ))}
             {table.rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                <td colSpan={6} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
                   No controls match the current filters.
                 </td>
               </tr>

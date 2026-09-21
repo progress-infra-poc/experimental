@@ -317,6 +317,8 @@ export interface ControlAggregation {
   profileVersion: string;
   severity: ControlDetail["severity"];
   impact: number;
+  lastScan: string;
+  lastScanTimestamp: number;
   nodeCount: number;
   counts: Record<Lowercase<AggregateControlStatus>, number>;
 }
@@ -528,6 +530,8 @@ export function getLatestControlAggregations(
           profileVersion: profile.version,
           severity: severityFor(control.impact),
           impact: control.impact,
+          lastScan: relativeTime(report.endTime),
+          lastScanTimestamp: report.endTime,
           nodeCount: 0,
           counts: { passed: 0, failed: 0, skipped: 0, error: 0, other: 0 },
         };
@@ -536,6 +540,10 @@ export function getLatestControlAggregations(
         ).toLowerCase() as Lowercase<AggregateControlStatus>;
         existing.counts[status] += 1;
         existing.nodeCount += 1;
+        if (report.endTime > existing.lastScanTimestamp) {
+          existing.lastScan = relativeTime(report.endTime);
+          existing.lastScanTimestamp = report.endTime;
+        }
         aggregations.set(id, existing);
       }
     }
