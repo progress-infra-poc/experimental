@@ -50,6 +50,7 @@ const NODE_COLUMNS = [
   { key: "platform", label: "Platform" },
   { key: "environment", label: "Environment" },
   { key: "profiles", label: "Profiles" },
+  { key: "controlSummary", label: "Control Summary" },
   { key: "controlFailures", label: "Control Failures" },
 ];
 
@@ -562,6 +563,33 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                   )}
                   {show("profiles") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.profiles}</td>
+                  )}
+                  {show("controlSummary") && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {(
+                          [
+                            ["Passed", row.passed],
+                            ["Failed", row.failed],
+                            ["Skipped", row.skipped],
+                            ["Waived", row.waived],
+                          ] as const
+                        ).map(([status, count]) => (
+                          <span
+                            key={status}
+                            title={`${status}: ${count}`}
+                            aria-label={`${status}: ${count}`}
+                            className="inline-flex items-center gap-1 text-[13px] text-chef-text"
+                          >
+                            <StatusIcon
+                              status={status}
+                              className={`h-4 w-4 ${count === 0 ? "opacity-40" : ""}`}
+                            />
+                            {count}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                   )}
                   {show("controlFailures") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlFailures}</td>
