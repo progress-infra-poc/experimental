@@ -51,7 +51,6 @@ const NODE_COLUMNS = [
   { key: "environment", label: "Environment" },
   { key: "profiles", label: "Profiles" },
   { key: "controlSummary", label: "Control Summary" },
-  { key: "controlFailures", label: "Control Failures" },
 ];
 
 interface NodeRow {
@@ -62,7 +61,6 @@ interface NodeRow {
   platform: string;
   environment: string;
   profiles: number;
-  controlFailures: string;
   failed: number;
   passed: number;
   skipped: number;
@@ -81,7 +79,6 @@ function buildNodeRows(rangeHours: number, selectedDate?: Date): NodeRow[] {
       platform: scan.platform,
       environment: scan.environment,
       profiles: detail?.profiles.length ?? 0,
-      controlFailures: counts.failed > 0 ? `${counts.failed} Failed` : "None",
       failed: counts.failed,
       passed: counts.passed,
       skipped: counts.skipped,
@@ -463,7 +460,7 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
   );
   const table = useTableControls({
     rows: filtered,
-    searchFields: ["node", "platform", "environment", "controlFailures"],
+    searchFields: ["node", "platform", "environment"],
   });
   const show = (key: string) => !hidden.has(key);
 
@@ -590,9 +587,6 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                         ))}
                       </div>
                     </td>
-                  )}
-                  {show("controlFailures") && (
-                    <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlFailures}</td>
                   )}
                 </tr>
               ))}
