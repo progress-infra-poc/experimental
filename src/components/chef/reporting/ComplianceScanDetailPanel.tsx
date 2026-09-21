@@ -71,7 +71,7 @@ export function ComplianceScanDetailPanel({
                 )}
               </div>
               <p className="mt-1 text-[12px] text-chef-text-muted">
-                Latest known node state with selectable historical executions
+                Node ID: {selectedDetail.nodeId}
               </p>
             </div>
             <SplitButton label="Export" />
