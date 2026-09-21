@@ -77,15 +77,13 @@ export function ComplianceScanDetailPanel({
             <SplitButton label="Export" />
           </div>
 
-          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+          <div className="grid items-start gap-4 p-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
             <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
-              <h3 className="text-[13px] font-semibold text-chef-text">Execution Information</h3>
+              <h3 className="text-[13px] font-semibold text-chef-text">Scan Information</h3>
               <dl className="mt-3 space-y-2">
                 {[
-                  { label: "Executed", value: selectedDetail.timestamp },
-                  { label: "Duration", value: selectedDetail.duration },
+                  { label: "Last Scan", value: selectedDetail.timestamp },
                   { label: "InSpec Version", value: selectedDetail.inspecVersion },
-                  { label: "Node ID", value: selectedDetail.nodeId },
                   { label: "IP Address", value: selectedDetail.ipAddress },
                   { label: "Platform", value: scan.platform },
                   { label: "Environment", value: scan.environment },
@@ -93,16 +91,14 @@ export function ComplianceScanDetailPanel({
                 ].map((row) => (
                   <div key={row.label} className="flex items-start justify-between gap-4">
                     <dt className="text-[12px] text-chef-text-muted">{row.label}</dt>
-                    <dd className="max-w-[65%] break-words text-right text-[12px] text-chef-text">
-                      {row.value}
-                    </dd>
+                    <dd className="text-right text-[12px] text-chef-text">{row.value}</dd>
                   </div>
                 ))}
               </dl>
             </section>
 
             <section className="rounded-sm border border-chef-line bg-chef-canvas/40 p-4">
-              <h3 className="text-[13px] font-semibold text-chef-text">Execution Outcome</h3>
+              <h3 className="text-[13px] font-semibold text-chef-text">Controls Overview</h3>
               <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
                 <li>
                   <span className="text-[13px] text-chef-text">Total Controls</span>
@@ -113,7 +109,7 @@ export function ComplianceScanDetailPanel({
                     { status: "Failed", label: "Failed", value: counts.failed },
                     { status: "Passed", label: "Passed", value: counts.passed },
                     { status: "Skipped", label: "Skipped", value: counts.skipped },
-                    { status: "Waived", label: "Other", value: counts.waived },
+                    { status: "Waived", label: "Waived", value: counts.waived },
                   ] as const
                 ).map((item) => (
                   <li key={item.label}>
