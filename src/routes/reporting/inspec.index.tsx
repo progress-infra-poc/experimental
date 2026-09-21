@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
-import { StatusPill } from "@/components/chef/StatusPill";
+import { StatusIcon, StatusPill, type StatusKind } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
@@ -482,21 +482,32 @@ function NodesTable({ rows }: { rows: NodeRow[] }) {
   );
 }
 
-function AggregationCount({ status, value }: { status: AggregateControlStatus; value: number }) {
-  const tone =
-    status === "Passed"
-      ? "bg-chef-success-bg text-chef-green"
-      : status === "Failed" || status === "Error"
-        ? "bg-chef-danger-bg text-chef-red"
-        : status === "Skipped"
-          ? "bg-chef-amber-bg text-chef-amber"
-          : "bg-chef-pill text-chef-text-muted";
+function ControlResources({ control }: { control: ControlAggregation }) {
+  const resources: { label: AggregateControlStatus; iconStatus: StatusKind; value: number }[] = [
+    { label: "Passed", iconStatus: "Passed", value: control.counts.passed },
+    { label: "Failed", iconStatus: "Failed", value: control.counts.failed },
+    { label: "Skipped", iconStatus: "Skipped", value: control.counts.skipped },
+    { label: "Error", iconStatus: "Failed", value: control.counts.error },
+    { label: "Other", iconStatus: "Waived", value: control.counts.other },
+  ];
+
   return (
-    <span
-      className={`inline-flex min-w-[48px] justify-center rounded-full px-2 py-1 text-[12px] font-medium ${tone}`}
-    >
-      {value.toLocaleString()}
-    </span>
+    <div className="flex items-center gap-3">
+      {resources.map((resource) => (
+        <span
+          key={resource.label}
+          title={`${resource.label}: ${resource.value.toLocaleString()}`}
+          aria-label={`${resource.label}: ${resource.value.toLocaleString()}`}
+          className="inline-flex cursor-default items-center gap-1 text-[13px] text-chef-text"
+        >
+          <StatusIcon
+            status={resource.iconStatus}
+            className={`h-[18px] w-[18px] ${resource.value === 0 ? "opacity-40" : ""}`}
+          />
+          {resource.value.toLocaleString()}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -523,9 +534,6 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
       if (key === "control") return row.key;
       if (key === "impact") return row.impact;
       if (key === "nodeCount") return row.nodeCount;
-      if (["Passed", "Failed", "Skipped", "Error", "Other"].includes(key)) {
-        return row.counts[key.toLowerCase() as Lowercase<AggregateControlStatus>];
-      }
       return "";
     },
   });
@@ -583,16 +591,7 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 sortDirection={table.sortDirection}
                 onSort={table.toggleSort}
               />
-              {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
-                <SortHeader
-                  key={status}
-                  label={status}
-                  columnKey={status}
-                  sortKey={table.sortKey}
-                  sortDirection={table.sortDirection}
-                  onSort={table.toggleSort}
-                />
-              ))}
+              <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Resources</th>
             </tr>
           </thead>
           <tbody>
@@ -610,21 +609,14 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
                 <td className="px-4 py-3 text-center text-[13px] text-chef-text">
                   {control.nodeCount.toLocaleString()}
                 </td>
-                {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
-                  <td key={status} className="px-3 py-3 text-center">
-                    <AggregationCount
-                      status={status}
-                      value={
-                        control.counts[status.toLowerCase() as Lowercase<AggregateControlStatus>]
-                      }
-                    />
-                  </td>
-                ))}
+                <td className="px-4 py-3">
+                  <ControlResources control={control} />
+                </td>
               </tr>
             ))}
             {table.rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
                   No controls match the current filters.
                 </td>
               </tr>
