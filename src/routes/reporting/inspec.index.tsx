@@ -240,9 +240,6 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
                   ["name", "Profile"],
                   ["version", "Version"],
                   ["rootProfile", "Identifier"],
-                  ["nodeCount", "Reporting Nodes"],
-                  ["controlCount", "Controls"],
-                  ["failedControls", "Failed Controls"],
                 ].map(([key, label]) => (
                   <SortHeader
                     key={key}
@@ -253,7 +250,6 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
                     onSort={table.toggleSort}
                   />
                 ))}
-                <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -273,16 +269,12 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
                   <td className="px-4 py-3 font-mono text-[12px] text-chef-text-muted">
                     {row.rootProfile}
                   </td>
-                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.nodeCount}</td>
-                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.controlCount}</td>
-                  <td className="px-4 py-3 text-[13px] text-chef-text">{row.failedControls}</td>
-                  <td className="px-4 py-3 text-[13px] text-chef-blue">View profile</td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={3}
                     className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
                   >
                     No profiles match the current search.
