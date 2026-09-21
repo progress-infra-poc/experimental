@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { StatusIcon, StatusPill } from "../StatusPill";
 import { SplitButton } from "../TableToolbar";
 import { type CountFilter } from "./CountCards";
@@ -28,6 +28,9 @@ export function ComplianceScanDetailPanel({
   const [query, setQuery] = useState("");
   const [severity, setSeverity] = useState("all");
   const [selectedControl, setSelectedControl] = useState<ControlDetail | null>(null);
+  const [expandedProfileId, setExpandedProfileId] = useState<string | null>(
+    detail.profiles[0]?.id ?? null,
+  );
 
   const selectedDetail = getScanDetail(selectedScanId) ?? detail;
   const { scan, counts, profiles, controls } = selectedDetail;
@@ -176,14 +179,28 @@ export function ComplianceScanDetailPanel({
 
           <div className="mt-3 space-y-3">
             {profileResults.map(({ profile, controls: profileControls, totalControls }) => (
-              <details
+              <section
                 key={profile.id}
-                open
                 className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface"
               >
-                <summary className="cursor-pointer list-none border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
+                <button
+                  type="button"
+                  aria-expanded={expandedProfileId === profile.id}
+                  aria-controls={`profile-controls-${profile.id}`}
+                  onClick={() =>
+                    setExpandedProfileId((current) => (current === profile.id ? null : profile.id))
+                  }
+                  className={`w-full bg-chef-canvas/50 px-4 py-3 text-left ${
+                    expandedProfileId === profile.id ? "border-b border-chef-line" : ""
+                  }`}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-chef-text-muted transition-transform ${
+                          expandedProfileId === profile.id ? "" : "-rotate-90"
+                        }`}
+                      />
                       <StatusPill status={profile.status} />
                       <span>
                         <span className="block text-[14px] font-semibold text-chef-text">
@@ -198,11 +215,13 @@ export function ComplianceScanDetailPanel({
                       {profileControls.length} of {totalControls} controls
                     </span>
                   </div>
-                </summary>
-                <div className="p-3">
-                  <ControlTable controls={profileControls} onScanResults={setSelectedControl} />
-                </div>
-              </details>
+                </button>
+                {expandedProfileId === profile.id && (
+                  <div id={`profile-controls-${profile.id}`} className="p-3">
+                    <ControlTable controls={profileControls} onScanResults={setSelectedControl} />
+                  </div>
+                )}
+              </section>
             ))}
             {profileResults.length === 0 && (
               <div className="rounded-sm border border-chef-line bg-chef-surface px-4 py-10 text-center text-[13px] text-chef-text-muted">
@@ -220,6 +239,7 @@ export function ComplianceScanDetailPanel({
           onSelect={(item) => {
             setSelectedScanId(item.scanId);
             setSelectedControl(null);
+            setExpandedProfileId(getScanDetail(item.scanId)?.profiles[0]?.id ?? null);
           }}
         />
       </div>
