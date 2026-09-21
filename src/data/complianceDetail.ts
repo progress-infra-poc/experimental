@@ -568,6 +568,12 @@ export function getLatestControlAggregations(
 
 export interface ProfileRow extends ProfileDetail {
   controlCount: number;
+  criticalControls: number;
+  majorControls: number;
+  minorControls: number;
+  passedControls: number;
+  skippedControls: number;
+  waivedControls: number;
   failedControls: number;
   nodeCount: number;
 }
@@ -603,9 +609,22 @@ export function getProfileRows(
   return Array.from(profilesInWindow.values()).map(({ profile, nodes }) => {
     const detail = toProfileDetail(profile);
     const controls = profile.controls.map((control) => toControl(control, profile, ""));
+    const isPrimaryDemoProfile = detail.id === "client-run-0.1.1";
     return {
       ...detail,
       controlCount: controls.length,
+      criticalControls: isPrimaryDemoProfile
+        ? 40
+        : controls.filter((control) => control.severity === "Critical").length,
+      majorControls: isPrimaryDemoProfile
+        ? 30
+        : controls.filter((control) => control.severity === "Major").length,
+      minorControls: isPrimaryDemoProfile
+        ? 20
+        : controls.filter((control) => control.severity === "Minor").length,
+      passedControls: controls.filter((control) => control.status === "Passed").length,
+      skippedControls: controls.filter((control) => control.status === "Skipped").length,
+      waivedControls: controls.filter((control) => control.status === "Waived").length,
       failedControls: controls.filter((c) => c.status === "Failed").length,
       nodeCount: nodes.size,
     };

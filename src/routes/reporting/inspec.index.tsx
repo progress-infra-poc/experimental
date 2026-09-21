@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, CircleAlert, Info, TriangleAlert } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
@@ -7,7 +7,7 @@ import { StatusIcon, type StatusKind } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
-import { SeverityLabel, type CountFilter } from "@/components/chef/reporting/CountCards";
+import { SeverityLabel } from "@/components/chef/reporting/CountCards";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,13 +25,13 @@ import {
 export const Route = createFileRoute("/reporting/inspec/")({
   head: () => ({
     meta: [
-      { title: "Node Compliance — InSpec Reporting — Progress Chef 360" },
+      { title: "Compliance Scan — InSpec Reporting — Progress Chef 360" },
       {
         name: "description",
         content:
           "Latest compliance state by node with execution history, profiles, controls, and aggregate outcomes.",
       },
-      { property: "og:title", content: "Node Compliance — InSpec Reporting — Progress Chef 360" },
+      { property: "og:title", content: "Compliance Scan — InSpec Reporting — Progress Chef 360" },
       {
         property: "og:description",
         content:
@@ -50,19 +50,16 @@ const NODE_COLUMNS = [
   { key: "platform", label: "Platform" },
   { key: "environment", label: "Environment" },
   { key: "profiles", label: "Profiles" },
-  { key: "complianceLevel", label: "Compliance Level" },
-  { key: "controlSummary", label: "Control Summary" },
+  { key: "controlSummary", label: "Node Level Control Summary" },
 ];
 
 interface NodeRow {
   id: string;
   lastScan: string;
-  status: "Passed" | "Failed";
   node: string;
   platform: string;
   environment: string;
   profiles: number;
-  complianceLevel: number;
   failed: number;
   passed: number;
   skipped: number;
@@ -76,12 +73,10 @@ function buildNodeRows(rangeHours: number, selectedDate?: Date): NodeRow[] {
     return {
       id: scan.id,
       lastScan: scan.lastScan,
-      status: scan.status,
       node: scan.node,
       platform: scan.platform,
       environment: scan.environment,
       profiles: detail?.profiles.length ?? 0,
-      complianceLevel: counts.total > 0 ? (counts.passed / counts.total) * 100 : 0,
       failed: counts.failed,
       passed: counts.passed,
       skipped: counts.skipped,
@@ -162,10 +157,7 @@ function InspecReportingPage() {
     () => buildNodeRows(24, range === "date" ? selectedDate : undefined),
     [range, selectedDate],
   );
-  const profileRows = useMemo(
-    () => getProfileRows(24, range === "date" ? selectedDate : undefined),
-    [range, selectedDate],
-  );
+  const profileRows = useMemo(getProfileRows, []);
   const aggregations = useMemo(
     () => getLatestControlAggregations(controlRangeHours),
     [controlRangeHours],
@@ -179,14 +171,14 @@ function InspecReportingPage() {
     >
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <h1 className="text-[28px] font-semibold text-chef-text">Node Compliance</h1>
+          <h1 className="text-[28px] font-semibold text-chef-text">Compliance Scan</h1>
           <p className="mt-1.5 max-w-[720px] text-[13px] text-chef-text-muted">
             Latest known compliance state for every reporting node. Open a node to investigate its
             execution history, profiles, controls, and outcomes.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <SplitButton label="Export" />
+          <SplitButton label="Download" />
         </div>
       </div>
 
@@ -216,19 +208,7 @@ function InspecReportingPage() {
             }
           />
         )}
-        {tab === "profiles" && (
-          <ProfilesTable
-            rows={profileRows}
-            dateFilter={
-              <ReportingDateFilter
-                range={range}
-                selectedDate={selectedDate}
-                onRangeChange={setRange}
-                onDateChange={setSelectedDate}
-              />
-            }
-          />
-        )}
+        {tab === "profiles" && <ProfilesTable rows={profileRows} />}
         {tab === "controls" && (
           <ControlAggregationSection
             rows={aggregations}
@@ -339,17 +319,15 @@ function ReportingDateFilter({
   );
 }
 
-function ProfilesTable({
-  rows,
-  dateFilter,
-}: {
-  rows: ReturnType<typeof getProfileRows>;
-  dateFilter: React.ReactNode;
-}) {
+function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
   const navigate = useNavigate();
   const table = useTableControls({
     rows,
     searchFields: ["name", "version", "id", "rootProfile"],
+    sortAccessor: (row, key) => {
+      if (key === "severitySummary") return row.criticalControls;
+      return String(row[key as keyof typeof row] ?? "");
+    },
   });
 
   return (
@@ -362,7 +340,6 @@ function ProfilesTable({
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search profiles"
-            filterContent={dateFilter}
           />
         </div>
         <div className="overflow-x-auto">
@@ -373,6 +350,7 @@ function ProfilesTable({
                   ["name", "Profile"],
                   ["version", "Version"],
                   ["rootProfile", "Identifier"],
+                  ["severitySummary", "Severity Summary Across Controls"],
                 ].map(([key, label]) => (
                   <SortHeader
                     key={key}
@@ -402,12 +380,40 @@ function ProfilesTable({
                   <td className="px-4 py-3 font-mono text-[12px] text-chef-text-muted">
                     {row.rootProfile}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="inline-grid grid-cols-[repeat(3,48px)] items-center gap-x-2 text-[12px]">
+                      <span
+                        title={`Critical: ${row.criticalControls}`}
+                        aria-label={`Critical: ${row.criticalControls}`}
+                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-critical"
+                      >
+                        <CircleAlert className="h-4 w-4" aria-hidden="true" />
+                        {row.criticalControls}
+                      </span>
+                      <span
+                        title={`Major: ${row.majorControls}`}
+                        aria-label={`Major: ${row.majorControls}`}
+                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-major"
+                      >
+                        <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+                        {row.majorControls}
+                      </span>
+                      <span
+                        title={`Minor: ${row.minorControls}`}
+                        aria-label={`Minor: ${row.minorControls}`}
+                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-minor"
+                      >
+                        <Info className="h-4 w-4" aria-hidden="true" />
+                        {row.minorControls}
+                      </span>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4}
                     className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
                   >
                     No profiles match the current search.
@@ -434,7 +440,6 @@ function ProfilesTable({
 }
 
 function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.ReactNode }) {
-  const [filter, setFilter] = useState<CountFilter>("all");
   const [platform, setPlatform] = useState("all");
   const [environment, setEnvironment] = useState("all");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -453,13 +458,9 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
       rows.filter((row) => {
         if (platform !== "all" && row.platform !== platform) return false;
         if (environment !== "all" && row.environment !== environment) return false;
-        if (filter === "Failed") return row.failed > 0;
-        if (filter === "Passed") return row.failed === 0;
-        if (filter === "Skipped") return row.skipped > 0;
-        if (filter === "Waived") return row.waived > 0;
         return true;
       }),
-    [rows, platform, environment, filter],
+    [rows, platform, environment],
   );
   const table = useTableControls({
     rows: filtered,
@@ -486,16 +487,7 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search nodes"
-            filterContent={dateFilter}
-            activeFilter={filter}
-            onFilterChange={(key) => setFilter(key as CountFilter)}
-            filterOptions={[
-              { key: "all", label: "All nodes" },
-              { key: "Failed", label: "Failed" },
-              { key: "Passed", label: "Passed" },
-              { key: "Skipped", label: "Contains skipped controls" },
-              { key: "Waived", label: "Contains other outcomes" },
-            ]}
+            actionContent={dateFilter}
             filterGroups={[
               {
                 id: "platform",
@@ -564,14 +556,9 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                   {show("profiles") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.profiles}</td>
                   )}
-                  {show("complianceLevel") && (
-                    <td className="px-4 py-3 text-[13px] text-chef-text">
-                      {row.complianceLevel.toFixed(1)}%
-                    </td>
-                  )}
                   {show("controlSummary") && (
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <div className="inline-grid grid-cols-[repeat(4,48px)] items-center gap-x-2">
                         {(
                           [
                             ["Passed", row.passed],
@@ -584,7 +571,7 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                             key={status}
                             title={`${status}: ${count}`}
                             aria-label={`${status}: ${count}`}
-                            className="inline-flex items-center gap-1 text-[13px] text-chef-text"
+                            className="grid grid-cols-[16px_24px] items-center gap-1 whitespace-nowrap text-[13px] tabular-nums text-chef-text"
                           >
                             <StatusIcon
                               status={status}
@@ -663,22 +650,8 @@ function ControlAggregationSection({
   rows: ControlAggregation[];
   dateFilter: React.ReactNode;
 }) {
-  const [outcome, setOutcome] = useState<"all" | AggregateControlStatus>("all");
-  const filtered = useMemo(
-    () =>
-      rows.filter((row) => {
-        if (
-          outcome !== "all" &&
-          row.counts[outcome.toLowerCase() as Lowercase<AggregateControlStatus>] === 0
-        ) {
-          return false;
-        }
-        return true;
-      }),
-    [rows, outcome],
-  );
   const table = useTableControls({
-    rows: filtered,
+    rows,
     searchFields: ["key", "title", "profileName"],
     initialPageSize: 25,
     sortAccessor: (row, key) => {
@@ -694,27 +667,11 @@ function ControlAggregationSection({
       <div className="rounded-sm border border-chef-line bg-chef-surface px-3 pt-3">
         <ResultsToolbar
           title="Controls"
-          resultLabel={`Showing ${table.rows.length} of ${filtered.length} controls`}
+          resultLabel={`Showing ${table.rows.length} of ${rows.length} controls`}
           query={table.query}
           onQueryChange={table.search}
           searchLabel="Search controls"
-          filterContent={dateFilter}
-          filterGroups={[
-            {
-              id: "outcome",
-              label: "Outcome",
-              value: outcome,
-              onChange: (value) => setOutcome(value as "all" | AggregateControlStatus),
-              options: [
-                { key: "all", label: "All outcomes" },
-                { key: "Passed", label: "Passed" },
-                { key: "Failed", label: "Failed" },
-                { key: "Skipped", label: "Skipped" },
-                { key: "Error", label: "Error" },
-                { key: "Other", label: "Other" },
-              ],
-            },
-          ]}
+          actionContent={dateFilter}
         />
       </div>
 
@@ -744,7 +701,7 @@ function ControlAggregationSection({
                 onSort={table.toggleSort}
               />
               <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">
-                Node Aggregation Overview for Controls
+                Node Level Control Summary
               </th>
             </tr>
           </thead>
@@ -785,7 +742,7 @@ function ControlAggregationSection({
       <Pager
         rangeStart={table.rangeStart}
         rangeEnd={table.rangeEnd}
-        total={filtered.length}
+        total={rows.length}
         page={table.page}
         pageCount={table.pageCount}
         setPage={table.setPage}

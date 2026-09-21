@@ -43,7 +43,7 @@ export function ScanHistoryPanel({
   return (
     <aside className="flex h-full flex-col rounded-sm border border-chef-line bg-chef-surface p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-chef-text">Execution History</h3>
+        <h3 className="text-[15px] font-semibold text-chef-text">Scan History</h3>
         <button
           type="button"
           className="inline-flex items-center gap-1.5 text-[13px] text-chef-text hover:text-chef-blue"

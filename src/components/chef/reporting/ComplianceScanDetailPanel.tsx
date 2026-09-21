@@ -18,10 +18,12 @@ export function ComplianceScanDetailPanel({
   detail,
   history,
   showHeader = true,
+  showDownload = true,
 }: {
   detail: ScanDetail;
   history: ScanHistoryItem[];
   showHeader?: boolean;
+  showDownload?: boolean;
 }) {
   const [selectedScanId, setSelectedScanId] = useState(detail.scan.id);
   const [filter, setFilter] = useState<CountFilter>("all");
@@ -77,7 +79,7 @@ export function ComplianceScanDetailPanel({
                 Node ID: {selectedDetail.nodeId}
               </p>
             </div>
-            <SplitButton label="Export" />
+            {showDownload && <SplitButton label="Download" />}
           </div>
 
           <div className="grid items-start gap-4 p-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">

@@ -27,7 +27,7 @@ export function ResultsToolbar({
   activeFilter,
   onFilterChange,
   filterGroups,
-  filterContent,
+  actionContent,
   columns,
   isColumnVisible,
   onToggleColumn,
@@ -41,7 +41,7 @@ export function ResultsToolbar({
   activeFilter?: string;
   onFilterChange?: (key: string) => void;
   filterGroups?: FilterGroup[];
-  filterContent?: React.ReactNode;
+  actionContent?: React.ReactNode;
   columns?: ToolbarColumn[];
   isColumnVisible?: (key: string) => boolean;
   onToggleColumn?: (key: string) => void;
@@ -66,7 +66,7 @@ export function ResultsToolbar({
       : []),
     ...(filterGroups ?? []),
   ];
-  const hasFilters = groups.length > 0 || Boolean(filterContent);
+  const hasFilters = groups.length > 0;
 
   const iconClass = (active: boolean) =>
     `inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors ${
@@ -82,6 +82,8 @@ export function ResultsToolbar({
         </div>
 
         <div className="flex items-center gap-1">
+          {actionContent}
+
           {openMenu === "search" || query ? (
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-chef-text-muted" />
@@ -157,12 +159,7 @@ export function ResultsToolbar({
           )}
         </div>
       </div>
-      {openMenu === "filter" && hasFilters && (
-        <div className="space-y-2">
-          {filterContent}
-          {groups.length > 0 && <FilterChipBar groups={groups} />}
-        </div>
-      )}
+      {openMenu === "filter" && hasFilters && <FilterChipBar groups={groups} />}
     </>
   );
 }

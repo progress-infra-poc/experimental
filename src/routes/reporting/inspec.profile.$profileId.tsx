@@ -6,9 +6,7 @@ import { StatusPill } from "@/components/chef/StatusPill";
 import { SplitButton } from "@/components/chef/TableToolbar";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
 import { ControlTable } from "@/components/chef/reporting/ControlTable";
-import { ScanResultsDrawer } from "@/components/chef/reporting/ScanResultsDrawer";
 import { getProfile, getProfileControls } from "@/data/complianceDetail";
-
 
 export const Route = createFileRoute("/reporting/inspec/profile/$profileId")({
   loader: ({ params }) => {
@@ -18,7 +16,9 @@ export const Route = createFileRoute("/reporting/inspec/profile/$profileId")({
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
-      return { meta: [{ title: "Unavailable — InSpec Reporting" }, { name: "robots", content: "noindex" }] };
+      return {
+        meta: [{ title: "Unavailable — InSpec Reporting" }, { name: "robots", content: "noindex" }],
+      };
     }
     const title = `${loaderData.profile.name} — Profile Details — Reporting`;
     const description = `Controls and metadata for the InSpec profile ${loaderData.profile.name} v${loaderData.profile.version}.`;
@@ -39,7 +39,6 @@ export const Route = createFileRoute("/reporting/inspec/profile/$profileId")({
 function ProfileDetailsPage() {
   const { profile, controls } = Route.useLoaderData();
   const [query, setQuery] = useState("");
-  const [selectedControl, setSelectedControl] = useState<(typeof controls)[number] | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -67,7 +66,7 @@ function ProfileDetailsPage() {
           </div>
           <p className="mt-1.5 text-[13px] text-chef-text-muted">{profile.description}</p>
         </div>
-        <SplitButton label="Export" />
+        <SplitButton label="Download" />
       </div>
 
       <section className="mt-6 grid gap-4 rounded-sm border border-chef-line bg-chef-surface p-4 md:grid-cols-4">
@@ -87,7 +86,8 @@ function ProfileDetailsPage() {
       <div className="mt-6">
         <ControlTable
           controls={visible}
-          onScanResults={setSelectedControl}
+          showScanResults={false}
+          testResultsLabel="Node Level Control Summary"
           toolbar={
             <ResultsToolbar
               title="Controls"
@@ -99,14 +99,6 @@ function ProfileDetailsPage() {
           }
         />
       </div>
-
-      <ScanResultsDrawer
-        open={selectedControl !== null}
-        onClose={() => setSelectedControl(null)}
-        title="Scan Results"
-        subtitle={selectedControl ? `${selectedControl.key}: ${selectedControl.title}` : ""}
-        controls={selectedControl ? [selectedControl] : []}
-      />
     </ModuleLayout>
   );
 }

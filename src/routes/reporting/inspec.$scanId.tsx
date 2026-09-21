@@ -58,7 +58,12 @@ function ComplianceScanDetailsPage() {
 
   return (
     <ModuleLayout moduleTitle="Reporting" railItems={reportingRailItems} crumbs={crumbs}>
-      <ComplianceScanDetailPanel key={detail.scan.id} detail={detail} history={history} />
+      <ComplianceScanDetailPanel
+        key={detail.scan.id}
+        detail={detail}
+        history={history}
+        showDownload={false}
+      />
     </ModuleLayout>
   );
 }

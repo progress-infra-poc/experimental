@@ -124,11 +124,15 @@ export function ControlTable({
   toolbar,
   onScanResults,
   showTestResults = true,
+  showScanResults = true,
+  testResultsLabel = "Test Results",
 }: {
   controls: ControlDetail[];
   toolbar?: React.ReactNode;
   onScanResults?: (control: ControlDetail) => void;
   showTestResults?: boolean;
+  showScanResults?: boolean;
+  testResultsLabel?: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -156,10 +160,10 @@ export function ControlTable({
               </th>
               {showTestResults && (
                 <th className="w-[220px] px-4 py-3 text-[13px] font-semibold text-chef-text">
-                  Test Results
+                  {testResultsLabel}
                 </th>
               )}
-              <th className="w-[150px] px-4 py-3" />
+              {showScanResults && <th className="w-[150px] px-4 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -203,25 +207,30 @@ export function ControlTable({
                         </div>
                       </td>
                     )}
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onScanResults) {
-                            onScanResults(control);
-                          } else {
-                            toggle(control.id);
-                          }
-                        }}
-                        className="rounded-sm border border-chef-blue px-3 py-1.5 text-[12px] font-medium text-chef-blue hover:bg-chef-blue/10"
-                      >
-                        Scan Results
-                      </button>
-                    </td>
+                    {showScanResults && (
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onScanResults) {
+                              onScanResults(control);
+                            } else {
+                              toggle(control.id);
+                            }
+                          }}
+                          className="rounded-sm border border-chef-blue px-3 py-1.5 text-[12px] font-medium text-chef-blue hover:bg-chef-blue/10"
+                        >
+                          Scan Results
+                        </button>
+                      </td>
+                    )}
                   </tr>
                   {open && (
                     <tr className="border-b border-chef-line">
-                      <td colSpan={showTestResults ? 4 : 3} className="bg-chef-canvas/60 px-4 py-4">
+                      <td
+                        colSpan={2 + Number(showTestResults) + Number(showScanResults)}
+                        className="bg-chef-canvas/60 px-4 py-4"
+                      >
                         <ControlResults control={control} />
                       </td>
                     </tr>
@@ -232,7 +241,7 @@ export function ControlTable({
             {controls.length === 0 && (
               <tr>
                 <td
-                  colSpan={showTestResults ? 4 : 3}
+                  colSpan={2 + Number(showTestResults) + Number(showScanResults)}
                   className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
                 >
                   No controls match the current filters.
