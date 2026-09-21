@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { ShieldCheck } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
@@ -502,19 +501,10 @@ function AggregationCount({ status, value }: { status: AggregateControlStatus; v
 }
 
 function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
-  const [profile, setProfile] = useState("all");
   const [outcome, setOutcome] = useState<"all" | AggregateControlStatus>("all");
-  const profiles = useMemo(
-    () =>
-      Array.from(new Map(rows.map((row) => [row.profileId, row.profileName])).entries()).sort(
-        (a, b) => a[1].localeCompare(b[1]),
-      ),
-    [rows],
-  );
   const filtered = useMemo(
     () =>
       rows.filter((row) => {
-        if (profile !== "all" && row.profileId !== profile) return false;
         if (
           outcome !== "all" &&
           row.counts[outcome.toLowerCase() as Lowercase<AggregateControlStatus>] === 0
@@ -523,60 +513,33 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
         }
         return true;
       }),
-    [rows, profile, outcome],
+    [rows, outcome],
   );
   const table = useTableControls({
     rows: filtered,
-    searchFields: ["key", "title", "profileName"],
+    searchFields: ["key", "title"],
     initialPageSize: 25,
+    sortAccessor: (row, key) => {
+      if (key === "control") return row.key;
+      if (key === "impact") return row.impact;
+      if (key === "nodeCount") return row.nodeCount;
+      if (["Passed", "Failed", "Skipped", "Error", "Other"].includes(key)) {
+        return row.counts[key.toLowerCase() as Lowercase<AggregateControlStatus>];
+      }
+      return "";
+    },
   });
-  const grouped = useMemo(() => {
-    const groups = new Map<
-      string,
-      { name: string; version: string; controls: ControlAggregation[] }
-    >();
-    for (const row of table.rows) {
-      const group = groups.get(row.profileId) ?? {
-        name: row.profileName,
-        version: row.profileVersion,
-        controls: [],
-      };
-      group.controls.push(row);
-      groups.set(row.profileId, group);
-    }
-    return Array.from(groups.entries());
-  }, [table.rows]);
 
   return (
     <section>
-      <div className="mb-3 flex items-start gap-3">
-        <ShieldCheck className="mt-0.5 h-5 w-5 text-chef-blue" />
-        <div>
-          <h2 className="text-[18px] font-semibold text-chef-text">Control Status Across Nodes</h2>
-          <p className="mt-1 text-[13px] text-chef-text-muted">
-            Aggregated once per node from its latest execution in the selected reporting window.
-          </p>
-        </div>
-      </div>
-
       <div className="rounded-sm border border-chef-line bg-chef-surface px-3 pt-3">
         <ResultsToolbar
-          title="Profile and Control Aggregation"
+          title="Controls"
           resultLabel={`Showing ${table.rows.length} of ${filtered.length} controls`}
           query={table.query}
           onQueryChange={table.search}
-          searchLabel="Search profiles and controls"
+          searchLabel="Search controls"
           filterGroups={[
-            {
-              id: "profile",
-              label: "Profile",
-              value: profile,
-              onChange: setProfile,
-              options: [
-                { key: "all", label: "All profiles" },
-                ...profiles.map(([key, label]) => ({ key, label })),
-              ],
-            },
             {
               id: "outcome",
               label: "Outcome",
@@ -595,79 +558,79 @@ function ControlAggregationSection({ rows }: { rows: ControlAggregation[] }) {
         />
       </div>
 
-      <div className="mt-3 space-y-3">
-        {grouped.map(([profileId, group]) => (
-          <details
-            key={profileId}
-            open
-            className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface"
-          >
-            <summary className="cursor-pointer list-none border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
-              <span className="text-[14px] font-semibold text-chef-text">{group.name}</span>
-              <span className="ml-2 text-[12px] text-chef-text-muted">v{group.version}</span>
-            </summary>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-chef-line">
-                    <th className="px-4 py-3 text-[12px] font-semibold text-chef-text">Control</th>
-                    <th className="px-4 py-3 text-[12px] font-semibold text-chef-text">Impact</th>
-                    <th className="px-4 py-3 text-center text-[12px] font-semibold text-chef-text">
-                      Nodes
-                    </th>
-                    {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
-                      <th
-                        key={status}
-                        className="px-3 py-3 text-center text-[12px] font-semibold text-chef-text"
-                      >
-                        {status}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.controls.map((control) => (
-                    <tr key={control.id} className="border-b border-chef-line last:border-0">
-                      <td className="max-w-[560px] px-4 py-3">
-                        <div className="break-all text-[13px] font-semibold text-chef-text">
-                          {control.key}
-                        </div>
-                        <div className="mt-0.5 text-[12px] text-chef-text-muted">
-                          {control.title}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <SeverityLabel severity={control.severity} impact={control.impact} />
-                      </td>
-                      <td className="px-4 py-3 text-center text-[13px] text-chef-text">
-                        {control.nodeCount.toLocaleString()}
-                      </td>
-                      {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map(
-                        (status) => (
-                          <td key={status} className="px-3 py-3 text-center">
-                            <AggregationCount
-                              status={status}
-                              value={
-                                control.counts[
-                                  status.toLowerCase() as Lowercase<AggregateControlStatus>
-                                ]
-                              }
-                            />
-                          </td>
-                        ),
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        ))}
-        {grouped.length === 0 && (
-          <div className="rounded-sm border border-chef-line bg-chef-surface px-4 py-10 text-center text-[13px] text-chef-text-muted">
-            No controls match the current filters.
-          </div>
-        )}
+      <div className="overflow-x-auto rounded-b-sm border-x border-b border-chef-line bg-chef-surface">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-chef-line bg-chef-canvas">
+              <SortHeader
+                label="Control"
+                columnKey="control"
+                sortKey={table.sortKey}
+                sortDirection={table.sortDirection}
+                onSort={table.toggleSort}
+              />
+              <SortHeader
+                label="Impact"
+                columnKey="impact"
+                sortKey={table.sortKey}
+                sortDirection={table.sortDirection}
+                onSort={table.toggleSort}
+              />
+              <SortHeader
+                label="Nodes"
+                columnKey="nodeCount"
+                sortKey={table.sortKey}
+                sortDirection={table.sortDirection}
+                onSort={table.toggleSort}
+              />
+              {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
+                <SortHeader
+                  key={status}
+                  label={status}
+                  columnKey={status}
+                  sortKey={table.sortKey}
+                  sortDirection={table.sortDirection}
+                  onSort={table.toggleSort}
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((control) => (
+              <tr key={control.id} className="border-b border-chef-line last:border-0">
+                <td className="max-w-[560px] px-4 py-3">
+                  <div className="break-all text-[13px] font-semibold text-chef-text">
+                    {control.key}
+                  </div>
+                  <div className="mt-0.5 text-[12px] text-chef-text-muted">{control.title}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <SeverityLabel severity={control.severity} impact={control.impact} />
+                </td>
+                <td className="px-4 py-3 text-center text-[13px] text-chef-text">
+                  {control.nodeCount.toLocaleString()}
+                </td>
+                {(["Passed", "Failed", "Skipped", "Error", "Other"] as const).map((status) => (
+                  <td key={status} className="px-3 py-3 text-center">
+                    <AggregationCount
+                      status={status}
+                      value={
+                        control.counts[status.toLowerCase() as Lowercase<AggregateControlStatus>]
+                      }
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {table.rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                  No controls match the current filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <Pager
