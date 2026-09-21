@@ -50,6 +50,7 @@ const NODE_COLUMNS = [
   { key: "platform", label: "Platform" },
   { key: "environment", label: "Environment" },
   { key: "profiles", label: "Profiles" },
+  { key: "complianceLevel", label: "Compliance Level" },
   { key: "controlSummary", label: "Control Summary" },
 ];
 
@@ -61,6 +62,7 @@ interface NodeRow {
   platform: string;
   environment: string;
   profiles: number;
+  complianceLevel: number;
   failed: number;
   passed: number;
   skipped: number;
@@ -79,6 +81,7 @@ function buildNodeRows(rangeHours: number, selectedDate?: Date): NodeRow[] {
       platform: scan.platform,
       environment: scan.environment,
       profiles: detail?.profiles.length ?? 0,
+      complianceLevel: counts.total > 0 ? (counts.passed / counts.total) * 100 : 0,
       failed: counts.failed,
       passed: counts.passed,
       skipped: counts.skipped,
@@ -560,6 +563,11 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                   )}
                   {show("profiles") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text">{row.profiles}</td>
+                  )}
+                  {show("complianceLevel") && (
+                    <td className="px-4 py-3 text-[13px] text-chef-text">
+                      {row.complianceLevel.toFixed(1)}%
+                    </td>
                   )}
                   {show("controlSummary") && (
                     <td className="px-4 py-3">
