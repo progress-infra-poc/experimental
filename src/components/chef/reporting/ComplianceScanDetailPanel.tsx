@@ -129,7 +129,7 @@ export function ComplianceScanDetailPanel({
           <div className="rounded-sm border border-chef-line bg-chef-surface px-3 pt-3">
             <ResultsToolbar
               title="Profile Results"
-              resultLabel={`${profiles.length} profiles • ${visibleControls.length} of ${controls.length} controls`}
+              resultLabel={`${profiles.length} profiles`}
               query={query}
               onQueryChange={setQuery}
               searchLabel="Search profiles and controls"
