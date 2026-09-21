@@ -200,7 +200,11 @@ export function ComplianceScanDetailPanel({
                 </button>
                 {expandedProfileId === profile.id && (
                   <div id={`profile-controls-${profile.id}`} className="p-3">
-                    <ControlTable controls={profileControls} onScanResults={setSelectedControl} />
+                    <ControlTable
+                      controls={profileControls}
+                      onScanResults={setSelectedControl}
+                      showTestResults={false}
+                    />
                   </div>
                 )}
               </section>

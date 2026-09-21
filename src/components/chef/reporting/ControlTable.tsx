@@ -119,15 +119,16 @@ export function ControlResults({ control }: { control: ControlDetail }) {
   );
 }
 
-
 export function ControlTable({
   controls,
   toolbar,
   onScanResults,
+  showTestResults = true,
 }: {
   controls: ControlDetail[];
   toolbar?: React.ReactNode;
   onScanResults?: (control: ControlDetail) => void;
+  showTestResults?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -150,10 +151,14 @@ export function ControlTable({
               <th className="px-4 py-3 text-[13px] font-semibold text-chef-text">
                 {controls.length} Controls
               </th>
-              <th className="w-[170px] px-4 py-3 text-[13px] font-semibold text-chef-text">Impact</th>
-              <th className="w-[220px] px-4 py-3 text-[13px] font-semibold text-chef-text">
-                Test Results
+              <th className="w-[170px] px-4 py-3 text-[13px] font-semibold text-chef-text">
+                Impact
               </th>
+              {showTestResults && (
+                <th className="w-[220px] px-4 py-3 text-[13px] font-semibold text-chef-text">
+                  Test Results
+                </th>
+              )}
               <th className="w-[150px] px-4 py-3" />
             </tr>
           </thead>
@@ -183,19 +188,21 @@ export function ControlTable({
                     <td className="px-4 py-3">
                       <SeverityLabel severity={control.severity} impact={control.impact} />
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {(["Failed", "Passed", "Skipped", "Waived"] as const).map((s) => (
-                          <span key={s} className="flex items-center gap-1" title={s}>
-                            <StatusIcon
-                              status={s}
-                              className={`h-4 w-4 ${tally[s] === 0 ? "opacity-40" : ""}`}
-                            />
-                            <span className="text-[13px] text-chef-text-muted">{tally[s]}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </td>
+                    {showTestResults && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {(["Failed", "Passed", "Skipped", "Waived"] as const).map((s) => (
+                            <span key={s} className="flex items-center gap-1" title={s}>
+                              <StatusIcon
+                                status={s}
+                                className={`h-4 w-4 ${tally[s] === 0 ? "opacity-40" : ""}`}
+                              />
+                              <span className="text-[13px] text-chef-text-muted">{tally[s]}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -214,7 +221,7 @@ export function ControlTable({
                   </tr>
                   {open && (
                     <tr className="border-b border-chef-line">
-                      <td colSpan={4} className="bg-chef-canvas/60 px-4 py-4">
+                      <td colSpan={showTestResults ? 4 : 3} className="bg-chef-canvas/60 px-4 py-4">
                         <ControlResults control={control} />
                       </td>
                     </tr>
@@ -224,7 +231,10 @@ export function ControlTable({
             })}
             {controls.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                <td
+                  colSpan={showTestResults ? 4 : 3}
+                  className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
+                >
                   No controls match the current filters.
                 </td>
               </tr>
@@ -235,4 +245,3 @@ export function ControlTable({
     </div>
   );
 }
-
