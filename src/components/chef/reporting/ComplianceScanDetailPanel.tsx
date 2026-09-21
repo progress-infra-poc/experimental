@@ -46,11 +46,14 @@ export function ComplianceScanDetailPanel({
   }, [controls, filter, severity, query]);
 
   const profileResults = profiles
-    .map((profile) => ({
-      profile,
-      controls: visibleControls.filter((control) => control.profileId === profile.id),
-      totalControls: controls.filter((control) => control.profileId === profile.id).length,
-    }))
+    .map((profile) => {
+      const allControls = controls.filter((control) => control.profileId === profile.id);
+      return {
+        profile,
+        controls: visibleControls.filter((control) => control.profileId === profile.id),
+        allControls,
+      };
+    })
     .filter(
       ({ controls: profileControls }) =>
         profileControls.length > 0 || (!query && filter === "all" && severity === "all"),
@@ -160,7 +163,7 @@ export function ComplianceScanDetailPanel({
           </div>
 
           <div className="mt-3 space-y-3">
-            {profileResults.map(({ profile, controls: profileControls, totalControls }) => (
+            {profileResults.map(({ profile, controls: profileControls, allControls }) => (
               <section
                 key={profile.id}
                 className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface"
@@ -193,9 +196,30 @@ export function ComplianceScanDetailPanel({
                         </span>
                       </span>
                     </div>
-                    <span className="text-[12px] text-chef-text-muted">
-                      {profileControls.length} of {totalControls} controls
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {(["Passed", "Failed", "Skipped", "Waived"] as const).map((status) => {
+                        const count = allControls.filter(
+                          (control) => control.status === status,
+                        ).length;
+                        return (
+                          <span
+                            key={status}
+                            title={`${status}: ${count}`}
+                            aria-label={`${status}: ${count}`}
+                            className="inline-flex items-center gap-1 text-[12px] text-chef-text-muted"
+                          >
+                            <StatusIcon
+                              status={status}
+                              className={`h-4 w-4 ${count === 0 ? "opacity-40" : ""}`}
+                            />
+                            {count}
+                          </span>
+                        );
+                      })}
+                      <span className="text-[12px] text-chef-text-muted">
+                        {allControls.length} controls
+                      </span>
+                    </div>
                   </div>
                 </button>
                 {expandedProfileId === profile.id && (
