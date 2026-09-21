@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { StatusIcon, StatusPill } from "../StatusPill";
 import { SplitButton } from "../TableToolbar";
 import { type CountFilter } from "./CountCards";
@@ -75,20 +75,6 @@ export function ComplianceScanDetailPanel({
               </p>
             </div>
             <SplitButton label="Export" />
-          </div>
-
-          <div className="border-b border-chef-line bg-chef-canvas/50 px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2 text-[13px] text-chef-text-muted">
-              <span>Node</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span>Execution History</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span className="font-medium text-chef-text">{selectedDetail.timestamp}</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span>Profiles</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span>Controls</span>
-            </div>
           </div>
 
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
