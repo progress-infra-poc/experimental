@@ -72,7 +72,6 @@ export function FilterChipBar({ groups }: { groups: FilterGroup[] }) {
               {group.options.map((option) => (
                 <option key={option.key} value={option.key}>
                   {option.label}
-                  {option.count !== undefined ? ` (${option.count})` : ""}
                 </option>
               ))}
             </select>

@@ -86,7 +86,6 @@ export function ClientRunsList({
   detailTo?: ClientRunDetailPath;
 }) {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [hidden, setHidden] = useState<Set<ColumnKey>>(new Set());
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -168,26 +167,6 @@ export function ClientRunsList({
       (policyFilter === "all" || run.policyGroup === policyFilter),
   );
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
-
-  function toggleRow(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleAll() {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allSelected) rows.forEach((r) => next.delete(r.id));
-      else rows.forEach((r) => next.add(r.id));
-      return next;
-    });
-  }
-
   const show = (key: ColumnKey) => !hidden.has(key);
   const visibleColumns = COLUMNS.filter((c) => show(c.key));
 
@@ -201,7 +180,7 @@ export function ClientRunsList({
       <div className="mt-6">
         <ResultsToolbar
           title="Run Records"
-          resultLabel={`Showing ${rows.length} results${selected.size > 0 ? ` • ${selected.size} selected` : ""}`}
+          resultLabel={`Showing ${rows.length} results`}
           query={table.query}
           onQueryChange={table.search}
           searchLabel="Search runs..."
@@ -223,14 +202,6 @@ export function ClientRunsList({
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-chef-line bg-chef-canvas">
-                <th className="w-10 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all runs on this page"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                  />
-                </th>
                 {visibleColumns.map((col) =>
                   col.key === "summary" ? (
                     <th key={col.key} className="px-4 py-3 text-[13px] font-semibold text-chef-text">
@@ -266,14 +237,6 @@ export function ClientRunsList({
                   }}
                   className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
                 >
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select run ${run.node}`}
-                      checked={selected.has(run.id)}
-                      onChange={() => toggleRow(run.id)}
-                    />
-                  </td>
                   {show("node") && <td className="px-4 py-3 text-[13px] text-chef-text">{run.node}</td>}
                   {show("status") && (
                     <td className="px-4 py-3">
@@ -298,7 +261,7 @@ export function ClientRunsList({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={visibleColumns.length + 2} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
+                  <td colSpan={visibleColumns.length + 1} className="px-4 py-10 text-center text-[13px] text-chef-text-muted">
                     No client runs match the current search.
                   </td>
                 </tr>

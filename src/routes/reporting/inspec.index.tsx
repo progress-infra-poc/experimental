@@ -279,7 +279,6 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
   const [filter, setFilter] = useState<CountFilter>("all");
   const [platform, setPlatform] = useState("all");
   const [environment, setEnvironment] = useState("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
@@ -325,24 +324,13 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
     });
   }
 
-  function toggleRow(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-sm border border-chef-line bg-chef-surface">
         <div className="border-b border-chef-line px-3 pt-3">
           <ResultsToolbar
             title="Scan Results"
-            resultLabel={`Showing ${table.rows.length} of ${filtered.length} nodes${
-              selected.size > 0 ? ` • ${selected.size} selected` : ""
-            }`}
+            resultLabel={`Showing ${table.rows.length} of ${filtered.length} nodes`}
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search nodes"
@@ -387,16 +375,6 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-chef-line bg-chef-canvas">
-                <th className="w-10 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all nodes"
-                    checked={table.rows.length > 0 && table.rows.every((r) => selected.has(r.id))}
-                    onChange={(e) =>
-                      setSelected(e.target.checked ? new Set(table.rows.map((r) => r.id)) : new Set())
-                    }
-                  />
-                </th>
                 {NODE_COLUMNS.filter((c) => show(c.key)).map((col) => (
                   <SortHeader
                     key={col.key}
@@ -417,14 +395,6 @@ function NodesTab({ rows, onOpenResults }: { rows: NodeRow[]; onOpenResults: Ope
                   onClick={() => navigate({ to: "/reporting/inspec/$scanId", params: { scanId: row.id } })}
                   className="cursor-pointer border-b border-chef-line last:border-0 hover:bg-chef-canvas/70"
                 >
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select node ${row.node}`}
-                      checked={selected.has(row.id)}
-                      onChange={() => toggleRow(row.id)}
-                    />
-                  </td>
                   {show("node") && (
                     <td className="px-4 py-3 text-[13px] text-chef-text hover:text-chef-blue">{row.node}</td>
                   )}
