@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ModuleLayout } from "@/components/chef/ModuleLayout";
 import { reportingRailItems } from "@/components/chef/rails";
 import { StatusIcon, type StatusKind } from "@/components/chef/StatusPill";
-import { SplitButton } from "@/components/chef/TableToolbar";
 import { TabStrip } from "@/components/chef/TabStrip";
 import { SortHeader } from "@/components/chef/reporting/SortHeader";
 import { SeverityLabel } from "@/components/chef/reporting/CountCards";
@@ -52,6 +51,7 @@ const NODE_COLUMNS = [
   { key: "profiles", label: "Profiles" },
   { key: "controlSummary", label: "Node Level Control Summary" },
 ];
+const DOWNLOAD_ACTIONS = [{ label: "Download as CSV" }, { label: "Download as JSON" }];
 
 interface NodeRow {
   id: string;
@@ -169,16 +169,13 @@ function InspecReportingPage() {
       railItems={reportingRailItems}
       crumbs={[{ label: "Reporting", to: "/reporting" }, { label: "InSpec Reporting" }]}
     >
-      <div className="flex flex-wrap items-start justify-between gap-6">
+      <div>
         <div>
           <h1 className="text-[28px] font-semibold text-chef-text">Compliance Scan</h1>
           <p className="mt-1.5 max-w-[720px] text-[13px] text-chef-text-muted">
             Latest known compliance state for every reporting node. Open a node to investigate its
             execution history, profiles, controls, and outcomes.
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <SplitButton label="Download" />
         </div>
       </div>
 
@@ -279,6 +276,7 @@ function ReportingDateFilter({
                 year: "numeric",
               })
             : "Last 24 hours"}
+          <ChevronDown className="h-4 w-4 text-chef-text-muted" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto p-3">
@@ -325,7 +323,6 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
     rows,
     searchFields: ["name", "version", "id", "rootProfile"],
     sortAccessor: (row, key) => {
-      if (key === "severitySummary") return row.criticalControls;
       return String(row[key as keyof typeof row] ?? "");
     },
   });
@@ -340,6 +337,7 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search profiles"
+            actions={DOWNLOAD_ACTIONS}
           />
         </div>
         <div className="overflow-x-auto">
@@ -350,7 +348,6 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
                   ["name", "Profile"],
                   ["version", "Version"],
                   ["rootProfile", "Identifier"],
-                  ["severitySummary", "Severity Summary Across Controls"],
                 ].map(([key, label]) => (
                   <SortHeader
                     key={key}
@@ -380,40 +377,12 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
                   <td className="px-4 py-3 font-mono text-[12px] text-chef-text-muted">
                     {row.rootProfile}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="inline-grid grid-cols-[repeat(3,48px)] items-center gap-x-2 text-[12px]">
-                      <span
-                        title={`Critical: ${row.criticalControls}`}
-                        aria-label={`Critical: ${row.criticalControls}`}
-                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-critical"
-                      >
-                        <CircleAlert className="h-4 w-4" aria-hidden="true" />
-                        {row.criticalControls}
-                      </span>
-                      <span
-                        title={`Major: ${row.majorControls}`}
-                        aria-label={`Major: ${row.majorControls}`}
-                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-major"
-                      >
-                        <TriangleAlert className="h-4 w-4" aria-hidden="true" />
-                        {row.majorControls}
-                      </span>
-                      <span
-                        title={`Minor: ${row.minorControls}`}
-                        aria-label={`Minor: ${row.minorControls}`}
-                        className="grid grid-cols-[16px_24px] items-center gap-1 font-medium tabular-nums text-chef-sev-minor"
-                      >
-                        <Info className="h-4 w-4" aria-hidden="true" />
-                        {row.minorControls}
-                      </span>
-                    </div>
-                  </td>
                 </tr>
               ))}
               {table.rows.length === 0 && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={3}
                     className="px-4 py-10 text-center text-[13px] text-chef-text-muted"
                   >
                     No profiles match the current search.
@@ -442,6 +411,8 @@ function ProfilesTable({ rows }: { rows: ReturnType<typeof getProfileRows> }) {
 function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.ReactNode }) {
   const [platform, setPlatform] = useState("all");
   const [environment, setEnvironment] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [profiles, setProfiles] = useState("all");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
@@ -453,14 +424,21 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
     () => Array.from(new Set(rows.map((row) => row.environment))).sort(),
     [rows],
   );
+  const profileCounts = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.profiles))).sort((a, b) => a - b),
+    [rows],
+  );
   const filtered = useMemo(
     () =>
       rows.filter((row) => {
         if (platform !== "all" && row.platform !== platform) return false;
         if (environment !== "all" && row.environment !== environment) return false;
+        if (status === "compliant" && row.failed > 0) return false;
+        if (status === "noncompliant" && row.failed === 0) return false;
+        if (profiles !== "all" && row.profiles !== Number(profiles)) return false;
         return true;
       }),
-    [rows, platform, environment],
+    [rows, platform, environment, status, profiles],
   );
   const table = useTableControls({
     rows: filtered,
@@ -487,7 +465,8 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
             query={table.query}
             onQueryChange={table.search}
             searchLabel="Search nodes"
-            actionContent={dateFilter}
+            filterContent={dateFilter}
+            actions={DOWNLOAD_ACTIONS}
             filterGroups={[
               {
                 id: "platform",
@@ -507,6 +486,30 @@ function NodesTable({ rows, dateFilter }: { rows: NodeRow[]; dateFilter: React.R
                 options: [
                   { key: "all", label: "All environments" },
                   ...environments.map((value) => ({ key: value, label: value })),
+                ],
+              },
+              {
+                id: "status",
+                label: "Status",
+                value: status,
+                onChange: setStatus,
+                options: [
+                  { key: "all", label: "All statuses" },
+                  { key: "compliant", label: "Compliant" },
+                  { key: "noncompliant", label: "Non-compliant" },
+                ],
+              },
+              {
+                id: "profiles",
+                label: "Profile count",
+                value: profiles,
+                onChange: setProfiles,
+                options: [
+                  { key: "all", label: "All profile counts" },
+                  ...profileCounts.map((value) => ({
+                    key: String(value),
+                    label: `${value} profile${value === 1 ? "" : "s"}`,
+                  })),
                 ],
               },
             ]}
@@ -671,7 +674,8 @@ function ControlAggregationSection({
           query={table.query}
           onQueryChange={table.search}
           searchLabel="Search controls"
-          actionContent={dateFilter}
+          filterContent={dateFilter}
+          actions={DOWNLOAD_ACTIONS}
         />
       </div>
 

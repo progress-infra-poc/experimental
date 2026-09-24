@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { StatusIcon } from "../StatusPill";
+import { HistoryPager } from "./HistoryPager";
 import type { RunHistoryItem } from "@/data/clientRunDetail";
 
 const RANGES = [
@@ -8,6 +9,8 @@ const RANGES = [
   { label: "Last 7 days", hours: 24 * 7 },
   { label: "Last 30 days", hours: 24 * 30 },
 ];
+
+const PAGE_SIZE = 10;
 
 export function RunHistoryPanel({
   history,
@@ -20,18 +23,31 @@ export function RunHistoryPanel({
 }) {
   const [rangeHours, setRangeHours] = useState(RANGES[2]!.hours);
   const [statusFilter, setStatusFilter] = useState<"all" | "Success" | "Failed">("all");
+  const [page, setPage] = useState(1);
 
-  const inRange = useMemo(() => history.filter((h) => h.hoursAgo <= rangeHours), [history, rangeHours]);
+  const inRange = useMemo(
+    () => history.filter((h) => h.hoursAgo <= rangeHours),
+    [history, rangeHours],
+  );
   const counts = {
     all: inRange.length,
     success: inRange.filter((h) => h.status === "Success").length,
     failed: inRange.filter((h) => h.status === "Failed").length,
   };
   const visible = inRange.filter((h) => statusFilter === "all" || h.status === statusFilter);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rangeHours, statusFilter]);
 
   function counterClass(active: boolean) {
     return `flex h-[52px] w-[58px] flex-col items-center justify-center gap-0.5 rounded-sm border text-[12px] transition-colors ${
-      active ? "border-chef-blue bg-chef-pill/60" : "border-chef-line bg-chef-surface hover:border-chef-blue"
+      active
+        ? "border-chef-blue bg-chef-pill/60"
+        : "border-chef-line bg-chef-surface hover:border-chef-blue"
     }`;
   }
 
@@ -49,7 +65,11 @@ export function RunHistoryPanel({
       </div>
 
       <div className="mt-3 flex items-center gap-2">
-        <button type="button" onClick={() => setStatusFilter("all")} className={counterClass(statusFilter === "all")}>
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={counterClass(statusFilter === "all")}
+        >
           <span className="text-chef-text-muted">All</span>
           <span className="font-semibold text-chef-text">{counts.all}</span>
         </button>
@@ -85,7 +105,7 @@ export function RunHistoryPanel({
       </select>
 
       <ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {visible.map((entry) => (
+        {paged.map((entry) => (
           <li key={entry.runId}>
             <button
               type="button"
@@ -105,9 +125,12 @@ export function RunHistoryPanel({
           </li>
         ))}
         {visible.length === 0 && (
-          <li className="py-6 text-center text-[13px] text-chef-text-muted">No runs in this range.</li>
+          <li className="py-6 text-center text-[13px] text-chef-text-muted">
+            No runs in this range.
+          </li>
         )}
       </ul>
+      <HistoryPager page={currentPage} pageCount={pageCount} onPageChange={setPage} />
     </aside>
   );
 }

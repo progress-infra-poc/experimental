@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { StatusIcon } from "../StatusPill";
+import { HistoryPager } from "./HistoryPager";
 import type { ScanHistoryItem } from "@/data/complianceDetail";
 
 const RANGES = [
@@ -8,6 +9,8 @@ const RANGES = [
   { label: "Last 7 days", hours: 24 * 7 },
   { label: "Last 30 days", hours: 24 * 30 },
 ];
+
+const PAGE_SIZE = 10;
 
 export function ScanHistoryPanel({
   history,
@@ -20,6 +23,7 @@ export function ScanHistoryPanel({
 }) {
   const [rangeHours, setRangeHours] = useState(RANGES[2]!.hours);
   const [statusFilter, setStatusFilter] = useState<"all" | "Passed" | "Failed">("all");
+  const [page, setPage] = useState(1);
 
   const inRange = useMemo(
     () => history.filter((h) => h.hoursAgo <= rangeHours),
@@ -31,6 +35,13 @@ export function ScanHistoryPanel({
     failed: inRange.filter((h) => h.status === "Failed").length,
   };
   const visible = inRange.filter((h) => statusFilter === "all" || h.status === statusFilter);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rangeHours, statusFilter]);
 
   function counterClass(active: boolean) {
     return `flex h-[52px] w-[58px] flex-col items-center justify-center gap-0.5 rounded-sm border text-[12px] transition-colors ${
@@ -94,7 +105,7 @@ export function ScanHistoryPanel({
       </select>
 
       <ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {visible.map((entry) => (
+        {paged.map((entry) => (
           <li key={entry.timestamp}>
             <button
               type="button"
@@ -119,6 +130,7 @@ export function ScanHistoryPanel({
           </li>
         )}
       </ul>
+      <HistoryPager page={currentPage} pageCount={pageCount} onPageChange={setPage} />
     </aside>
   );
 }

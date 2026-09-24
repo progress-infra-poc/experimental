@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Columns2, Filter, Search, X } from "lucide-react";
+import { ChevronDown, Columns2, Filter, Search, X } from "lucide-react";
 import { FilterChipBar, type FilterGroup } from "./FilterChipBar";
 
 export interface ToolbarFilterOption {
@@ -11,6 +11,11 @@ export interface ToolbarFilterOption {
 export interface ToolbarColumn {
   key: string;
   label: string;
+}
+
+export interface ToolbarAction {
+  label: string;
+  onSelect?: () => void;
 }
 
 /**
@@ -27,7 +32,9 @@ export function ResultsToolbar({
   activeFilter,
   onFilterChange,
   filterGroups,
-  actionContent,
+  defaultFilterIds,
+  filterContent,
+  actions,
   columns,
   isColumnVisible,
   onToggleColumn,
@@ -41,17 +48,13 @@ export function ResultsToolbar({
   activeFilter?: string;
   onFilterChange?: (key: string) => void;
   filterGroups?: FilterGroup[];
-  actionContent?: React.ReactNode;
+  defaultFilterIds?: string[];
+  filterContent?: React.ReactNode;
+  actions?: ToolbarAction[];
   columns?: ToolbarColumn[];
   isColumnVisible?: (key: string) => boolean;
   onToggleColumn?: (key: string) => void;
 }) {
-  const [openMenu, setOpenMenu] = useState<"search" | "filter" | "columns" | null>(null);
-
-  function toggle(menu: "search" | "filter" | "columns") {
-    setOpenMenu((current) => (current === menu ? null : menu));
-  }
-
   const groups: FilterGroup[] = [
     ...(filterOptions && onFilterChange
       ? [
@@ -67,6 +70,14 @@ export function ResultsToolbar({
     ...(filterGroups ?? []),
   ];
   const hasFilters = groups.length > 0;
+  const hasFilterPanel = hasFilters || Boolean(filterContent);
+  const [openMenu, setOpenMenu] = useState<"search" | "filter" | "columns" | "actions" | null>(
+    null,
+  );
+
+  function toggle(menu: "search" | "filter" | "columns" | "actions") {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  }
 
   const iconClass = (active: boolean) =>
     `inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors ${
@@ -82,8 +93,6 @@ export function ResultsToolbar({
         </div>
 
         <div className="flex items-center gap-1">
-          {actionContent}
-
           {openMenu === "search" || query ? (
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-chef-text-muted" />
@@ -117,7 +126,7 @@ export function ResultsToolbar({
             </button>
           )}
 
-          {hasFilters && (
+          {hasFilterPanel && (
             <button
               type="button"
               aria-label="Filter results"
@@ -157,9 +166,48 @@ export function ResultsToolbar({
               )}
             </div>
           )}
+
+          {actions && actions.length > 0 && (
+            <div className="relative ml-2">
+              <button
+                type="button"
+                aria-label="Table actions"
+                aria-expanded={openMenu === "actions"}
+                onClick={() => toggle("actions")}
+                className="inline-flex h-9 items-center gap-2 rounded-sm bg-chef-blue px-3 text-[13px] font-medium text-chef-blue-foreground transition-colors hover:bg-chef-blue-hover"
+              >
+                Download
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {openMenu === "actions" && (
+                <div className="absolute right-0 z-20 mt-1 w-[180px] rounded-sm border border-chef-line bg-chef-surface py-1 shadow-lg">
+                  {actions.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={() => {
+                        action.onSelect?.();
+                        setOpenMenu(null);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-[13px] text-chef-text hover:bg-chef-canvas hover:text-chef-blue"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      {openMenu === "filter" && hasFilters && <FilterChipBar groups={groups} />}
+      {openMenu === "filter" && hasFilterPanel && (
+        <div className="flex flex-wrap items-center gap-2 px-1 pb-3">
+          {filterContent}
+          {hasFilters && (
+            <FilterChipBar groups={groups} defaultFilterIds={defaultFilterIds ?? []} />
+          )}
+        </div>
+      )}
     </>
   );
 }

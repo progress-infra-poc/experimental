@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, Download } from "lucide-react";
 import { type FilterGroup } from "@/components/chef/reporting/FilterChipBar";
 import { ResultsToolbar } from "@/components/chef/reporting/ResultsToolbar";
 import { StatusIcon, StatusPill } from "@/components/chef/StatusPill";
@@ -45,37 +44,6 @@ function SummaryChips({ summary }: { summary: ClientRun["summary"] }) {
           {item.value}
         </span>
       ))}
-    </div>
-  );
-}
-
-function DownloadMenu() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-10 items-center gap-3 rounded-sm bg-chef-blue px-4 text-[14px] font-medium text-chef-blue-foreground transition-colors hover:bg-chef-blue-hover"
-      >
-        <Download className="h-4 w-4" />
-        Download
-        <ChevronDown className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-[190px] rounded-sm border border-chef-line bg-chef-surface py-1 shadow-lg">
-          {["Download as CSV", "Download as JSON"].map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setOpen(false)}
-              className="block w-full px-3 py-2 text-left text-[13px] text-chef-text hover:bg-chef-canvas hover:text-chef-blue"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -172,10 +140,7 @@ export function ClientRunsList({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-8">
-        <h1 className="text-[28px] font-semibold text-chef-text">Client Runs</h1>
-        <DownloadMenu />
-      </div>
+      <h1 className="text-[28px] font-semibold text-chef-text">Client Runs</h1>
 
       <div className="mt-6">
         <ResultsToolbar
@@ -185,6 +150,7 @@ export function ClientRunsList({
           onQueryChange={table.search}
           searchLabel="Search runs..."
           filterGroups={filterGroups}
+          actions={[{ label: "Download as CSV" }, { label: "Download as JSON" }]}
           columns={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
           isColumnVisible={(key) => show(key as ColumnKey)}
           onToggleColumn={(key) =>

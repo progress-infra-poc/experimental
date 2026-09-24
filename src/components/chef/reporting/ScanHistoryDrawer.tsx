@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, X } from "lucide-react";
 import { StatusPill } from "../StatusPill";
+import { HistoryPager } from "./HistoryPager";
 import type { ScanHistoryItem } from "@/data/complianceDetail";
 
 const RANGES = [
@@ -8,6 +9,8 @@ const RANGES = [
   { id: "7d", label: "Last 7 days", hours: 168 },
   { id: "30d", label: "Last 30 days", hours: 720 },
 ];
+
+const PAGE_SIZE = 10;
 
 export function ScanHistoryDrawer({
   open,
@@ -26,6 +29,7 @@ export function ScanHistoryDrawer({
 }) {
   const [range, setRange] = useState("7d");
   const [filter, setFilter] = useState<"all" | "Passed" | "Failed">("all");
+  const [page, setPage] = useState(1);
 
   const inRange = useMemo(() => {
     const hours = RANGES.find((r) => r.id === range)?.hours ?? 168;
@@ -38,19 +42,36 @@ export function ScanHistoryDrawer({
     passed: inRange.filter((h) => h.status === "Passed").length,
     failed: inRange.filter((h) => h.status === "Failed").length,
   };
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [range, filter]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <button type="button" aria-label="Close scan history" className="flex-1 bg-black/40" onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Close scan history"
+        className="flex-1 bg-black/40"
+        onClick={onClose}
+      />
       <aside className="flex h-full w-full max-w-[440px] flex-col bg-chef-surface shadow-xl">
         <header className="flex items-start justify-between border-b border-chef-line px-5 py-4">
           <div>
             <h2 className="text-[16px] font-semibold text-chef-text">Scan History</h2>
             <p className="text-[13px] text-chef-text-muted">{nodeName}</p>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="text-chef-text-muted hover:text-chef-blue">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="text-chef-text-muted hover:text-chef-blue"
+          >
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -69,11 +90,13 @@ export function ScanHistoryDrawer({
             ))}
           </select>
           <div className="flex items-center gap-2">
-            {([
-              ["all", `All (${counts.all})`],
-              ["Passed", `Passed (${counts.passed})`],
-              ["Failed", `Failed (${counts.failed})`],
-            ] as const).map(([id, label]) => (
+            {(
+              [
+                ["all", `All (${counts.all})`],
+                ["Passed", `Passed (${counts.passed})`],
+                ["Failed", `Failed (${counts.failed})`],
+              ] as const
+            ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
@@ -91,7 +114,7 @@ export function ScanHistoryDrawer({
         </div>
 
         <ul className="flex-1 overflow-y-auto">
-          {rows.map((item) => (
+          {pagedRows.map((item) => (
             <li key={item.timestamp}>
               <button
                 type="button"
@@ -114,6 +137,10 @@ export function ScanHistoryDrawer({
             </li>
           )}
         </ul>
+
+        <div className="border-t border-chef-line px-5 py-2">
+          <HistoryPager page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+        </div>
 
         <footer className="border-t border-chef-line px-5 py-3">
           <button
