@@ -5,8 +5,8 @@ node management, declarative state management, and reporting workflows.
 
 ## Links
 
-- **Repository:** https://github.com/Jayamathans12/reporting-prototype
-- **Live prototype:** https://jayamathans12.github.io/reporting-prototype/
+- **Repository:** https://github.com/progress-infra-poc/experimental
+- **Live prototype:** https://progress-infra-poc.github.io/experimental/
 
 ## Development
 
